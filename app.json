@@ -1,0 +1,13 @@
+{
+  "pages": [
+    "pages/index/index"
+  ],
+  "window": {
+    "navigationBarTitleText": "Pocket Groove",
+    "navigationBarBackgroundColor": "#101113",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#f5f2ea"
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

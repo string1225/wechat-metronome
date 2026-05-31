@@ -1,0 +1,14 @@
+{
+  "description": "A simple WeChat Mini Program metronome for drum practice.",
+  "compileType": "miniprogram",
+  "miniprogramRoot": "./",
+  "projectname": "wechat-metronome",
+  "appid": "touristappid",
+  "setting": {
+    "es6": true,
+    "postcss": true,
+    "minified": true,
+    "urlCheck": false
+  },
+  "condition": {}
+}

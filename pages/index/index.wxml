@@ -1,0 +1,125 @@
+<view class="page-shell">
+  <view class="tempo-band">
+    <view class="brand-row">
+      <view>
+        <text class="eyebrow">DRUM PRACTICE</text>
+        <view class="app-title">Pocket Groove</view>
+      </view>
+      <view class="bar-counter">
+        <text class="bar-number">{{currentBar}}</text>
+        <text class="bar-label">BAR</text>
+      </view>
+    </view>
+
+    <view class="tempo-readout">
+      <text class="tempo-number">{{bpm}}</text>
+      <text class="tempo-unit">BPM</text>
+    </view>
+
+    <view class="beat-dots">
+      <block wx:for="{{beatDots}}" wx:key="*this">
+        <view class="beat-dot {{index == 0 ? 'is-downbeat' : ''}} {{currentBeat == index && isPlaying ? 'is-active' : ''}}"></view>
+      </block>
+    </view>
+
+    <view class="transport-row">
+      <button class="icon-button" bindtap="changeBpm" data-step="-5" hover-class="button-hover">-5</button>
+      <button class="play-button {{isPlaying ? 'is-playing' : ''}}" bindtap="togglePlay" hover-class="button-hover">
+        <text>{{isPlaying ? '停止' : '开始'}}</text>
+      </button>
+      <button class="icon-button" bindtap="changeBpm" data-step="5" hover-class="button-hover">+5</button>
+    </view>
+
+    <slider
+      class="tempo-slider"
+      min="{{minBpm}}"
+      max="{{maxBpm}}"
+      value="{{bpm}}"
+      step="1"
+      activeColor="#e2574c"
+      backgroundColor="#363330"
+      block-color="#ffffff"
+      block-size="22"
+      bindchanging="onTempoSlide"
+      bindchange="onTempoSlide"
+    />
+  </view>
+
+  <view class="mode-strip">
+    <button class="mode-button {{mode == 'pattern' ? 'is-active' : ''}}" data-mode="pattern" bindtap="setMode">练习</button>
+    <button class="mode-button {{mode == 'click' ? 'is-active' : ''}}" data-mode="click" bindtap="setMode">节拍器</button>
+  </view>
+
+  <view class="control-grid">
+    <label class="switch-line">
+      <text>声音</text>
+      <switch checked="{{soundEnabled}}" data-key="soundEnabled" bindchange="onSwitchChange" color="#e2574c" />
+    </label>
+    <label class="switch-line">
+      <text>震动</text>
+      <switch checked="{{vibrationEnabled}}" data-key="vibrationEnabled" bindchange="onSwitchChange" color="#e2574c" />
+    </label>
+    <label class="switch-line {{mode == 'pattern' ? '' : 'is-muted'}}">
+      <text>参照拍</text>
+      <switch checked="{{clickOverlay}}" disabled="{{mode != 'pattern'}}" data-key="clickOverlay" bindchange="onSwitchChange" color="#e2574c" />
+    </label>
+  </view>
+
+  <view class="pattern-panel" wx:if="{{mode == 'pattern'}}">
+    <picker mode="selector" range="{{patternNames}}" value="{{selectedPatternIndex}}" bindchange="onPatternChange">
+      <view class="picker-line">
+        <view>
+          <text class="section-label">当前练习</text>
+          <view class="pattern-name">{{activePattern.name}}</view>
+        </view>
+        <text class="picker-arrow">⌄</text>
+      </view>
+    </picker>
+
+    <view class="pattern-meta">
+      <text>{{activePattern.description}}</text>
+      <text class="focus-text">{{activePattern.focus}}</text>
+    </view>
+
+    <view class="ruler-row">
+      <view class="track-name"></view>
+      <view class="step-strip">
+        <block wx:for="{{activePattern.ruler}}" wx:for-item="mark" wx:for-index="stepIndex" wx:key="step">
+          <view class="ruler-cell {{mark.isBeat ? 'is-beat' : ''}} {{currentStep == stepIndex && isPlaying ? 'is-current' : ''}}">
+            <text>{{mark.label}}</text>
+          </view>
+        </block>
+      </view>
+    </view>
+
+    <block wx:for="{{activePattern.tracks}}" wx:for-item="track" wx:key="key">
+      <view class="track-row">
+        <view class="track-name">
+          <text class="track-short">{{track.short}}</text>
+          <text class="track-label">{{track.label}}</text>
+        </view>
+        <view class="step-strip">
+          <block wx:for="{{track.cells}}" wx:for-item="cell" wx:for-index="cellIndex" wx:key="step">
+            <view class="step-cell {{cell.isBeat ? 'is-beat' : ''}} {{cell.hit ? 'has-hit' : ''}} {{currentStep == cellIndex && isPlaying ? 'is-current' : ''}}">
+              <text wx:if="{{cell.label}}">{{cell.label}}</text>
+            </view>
+          </block>
+        </view>
+      </view>
+    </block>
+  </view>
+
+  <view class="click-panel" wx:else>
+    <view class="click-meter">
+      <block wx:for="{{beatDots}}" wx:key="*this">
+        <view class="meter-tile {{index == 0 ? 'is-downbeat' : ''}} {{currentBeat == index && isPlaying ? 'is-active' : ''}}">
+          <text>{{index + 1}}</text>
+        </view>
+      </block>
+    </view>
+  </view>
+
+  <view class="status-line">
+    <text>{{audioStatus}}</text>
+  </view>
+</view>
