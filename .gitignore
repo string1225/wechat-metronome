@@ -1,7 +1,6 @@
 node_modules/
 miniprogram_npm/
 dist/
-.agents/
 .DS_Store
 project.private.config.json
 skills-lock.json
