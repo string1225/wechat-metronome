@@ -1,5 +1,10 @@
-const { patterns } = require('../../utils/patterns');
+const {
+  continuousRoutines,
+  dottedPatterns,
+  singlePatterns
+} = require('../../utils/patterns');
 
+const APP_NAME = '架子鼓练习助手';
 const MIN_BPM = 40;
 const MAX_BPM = 220;
 
@@ -13,53 +18,162 @@ function clampTempo(value) {
   return Math.max(MIN_BPM, Math.min(MAX_BPM, Math.round(tempo)));
 }
 
+function getCellWidth(totalSteps) {
+  if (totalSteps >= 40) {
+    return 34;
+  }
+
+  if (totalSteps >= 28) {
+    return 38;
+  }
+
+  if (totalSteps >= 20) {
+    return 44;
+  }
+
+  return 54;
+}
+
+function getSlotHand(step) {
+  return step % 2 === 0 ? 'R' : 'L';
+}
+
 function buildPatternView(pattern) {
-  const totalSteps = pattern.beats * pattern.stepsPerBeat;
-  const ruler = Array.from({ length: totalSteps }, (_, index) => ({
-    step: index,
-    label: index % pattern.stepsPerBeat === 0 ? String(index / pattern.stepsPerBeat + 1) : '',
-    isBeat: index % pattern.stepsPerBeat === 0
-  }));
+  const bars = pattern.bars || 1;
+  const beats = pattern.beats || 4;
+  const totalSteps = bars * beats * pattern.stepsPerBeat;
+  const measureLength = beats * pattern.stepsPerBeat;
+  const cellWidth = getCellWidth(totalSteps);
+  const ruler = Array.from({ length: totalSteps }, (_, index) => {
+    const measureStep = index % measureLength;
+    const beatIndex = Math.floor(measureStep / pattern.stepsPerBeat);
+    const isBeat = measureStep % pattern.stepsPerBeat === 0;
+
+    return {
+      step: index,
+      label: isBeat ? String(beatIndex + 1) : '',
+      isBarStart: measureStep === 0,
+      isBeat
+    };
+  });
 
   const tracks = pattern.tracks.map((track) => ({
     ...track,
     cells: Array.from({ length: totalSteps }, (_, index) => {
+      const measureStep = index % measureLength;
       const value = track.hits[index] || 0;
 
       return {
         step: index,
         hit: Boolean(value),
         label: typeof value === 'string' ? value : '',
-        isBeat: index % pattern.stepsPerBeat === 0
+        isBarStart: measureStep === 0,
+        isBeat: measureStep % pattern.stepsPerBeat === 0
       };
     })
   }));
 
   return {
     ...pattern,
-    totalSteps,
+    bars,
+    beats,
+    cellWidth,
+    gridWidth: totalSteps * cellWidth + Math.max(0, totalSteps - 1) * 6,
+    measureLength,
     ruler,
+    totalSteps,
     tracks
   };
 }
 
-const patternViews = patterns.map(buildPatternView);
+function buildRoutineRuntime(routine) {
+  let totalBars = 0;
+  let totalSteps = 0;
+  const timeline = [];
+  const stages = routine.stages.map((stage, stageIndex) => {
+    const beats = stage.beats || routine.beats || 4;
+    const bars = stage.bars || 1;
+    const measureLength = beats * stage.stepsPerBeat;
+    const stageSteps = bars * measureLength;
+    const stageView = {
+      ...stage,
+      bars,
+      beats,
+      measureLength,
+      stageIndex,
+      startBar: totalBars + 1,
+      startStep: totalSteps,
+      totalSteps: stageSteps
+    };
+
+    for (let stageStep = 0; stageStep < stageSteps; stageStep += 1) {
+      const measureStep = stageStep % measureLength;
+
+      timeline.push({
+        beat: Math.floor(measureStep / stage.stepsPerBeat),
+        globalBar: totalBars + Math.floor(stageStep / measureLength) + 1,
+        hand: stage.isRest ? '' : getSlotHand(stageStep),
+        isBeatStart: measureStep % stage.stepsPerBeat === 0,
+        isDownbeat: measureStep === 0,
+        measureStep,
+        stageBar: Math.floor(stageStep / measureLength) + 1,
+        stageIndex,
+        stageStep
+      });
+    }
+
+    totalBars += bars;
+    totalSteps += stageSteps;
+
+    return stageView;
+  });
+
+  return {
+    ...routine,
+    stages,
+    timeline,
+    totalBars,
+    totalSteps
+  };
+}
+
+function buildRoutineView(runtime) {
+  const { timeline, ...routineView } = runtime;
+  return routineView;
+}
+
+const singlePatternViews = singlePatterns.map(buildPatternView);
+const dottedPatternViews = dottedPatterns.map(buildPatternView);
+const continuousRoutineRuntimeViews = continuousRoutines.map(buildRoutineRuntime);
+const continuousRoutineViews = continuousRoutineRuntimeViews.map(buildRoutineView);
 
 Page({
   data: {
+    appName: APP_NAME,
     minBpm: MIN_BPM,
     maxBpm: MAX_BPM,
-    bpm: patternViews[0].defaultBpm,
-    mode: 'pattern',
+    bpm: 90,
+    mode: 'click',
     isPlaying: false,
     currentStep: -1,
     currentBeat: -1,
     currentBar: 1,
-    patterns: patternViews,
-    patternNames: patternViews.map((pattern) => pattern.name),
-    selectedPatternIndex: 0,
-    activePattern: patternViews[0],
-    beatDots: Array.from({ length: patternViews[0].beats }, (_, index) => index),
+    currentStageIndex: 0,
+    currentStageName: continuousRoutineViews[0].stages[0].name,
+    currentStageBar: 1,
+    currentStageTotalBars: continuousRoutineViews[0].stages[0].bars,
+    currentStageIsRest: false,
+    singlePatterns: singlePatternViews,
+    dottedPatterns: dottedPatternViews,
+    exercisePatterns: singlePatternViews,
+    selectedSingleIndex: 0,
+    selectedDottedIndex: 0,
+    selectedExerciseIndex: 0,
+    activePattern: singlePatternViews[0],
+    continuousRoutines: continuousRoutineViews,
+    selectedRoutineIndex: 0,
+    activeRoutine: continuousRoutineViews[0],
+    beatDots: Array.from({ length: 4 }, (_, index) => index),
     soundEnabled: true,
     vibrationEnabled: false,
     clickOverlay: true,
@@ -70,13 +184,14 @@ Page({
   _audioAvailable: null,
   _audioCtx: null,
   _fallbackWarned: false,
-  _lookaheadMs: 110,
+  _lookaheadMs: 120,
   _nextStepAt: 0,
   _timer: null,
-  _timerIntervalMs: 25,
+  _timerIntervalMs: 24,
 
   onLoad() {
-    this.applyPattern(0, false);
+    this.applyExercise('single', 0, true);
+    this.applyRoutine(0, true);
   },
 
   onHide() {
@@ -100,15 +215,11 @@ Page({
   start() {
     const audioReady = this.ensureAudio();
 
-    this._absoluteStep = 0;
-    this._fallbackWarned = false;
-    this._nextStepAt = Date.now() + 90;
+    this.resetScheduler(80);
 
     this.setData({
-      audioStatus: audioReady ? '音频已就绪' : '使用震动/视觉',
-      currentBar: 1,
-      currentBeat: -1,
-      currentStep: -1,
+      ...this.getResetState(),
+      audioStatus: audioReady ? '音频已就绪' : '使用视觉/震动',
       isPlaying: true
     });
 
@@ -126,15 +237,35 @@ Page({
     }
 
     this.setData({
-      currentBar: 1,
-      currentBeat: -1,
-      currentStep: -1,
+      ...this.getResetState(),
       isPlaying: false
     });
 
     if (!silent && wx.setKeepScreenOn) {
       wx.setKeepScreenOn({ keepScreenOn: false });
     }
+  },
+
+  getResetState() {
+    const routine = this.data.activeRoutine || continuousRoutineViews[0];
+    const stage = routine.stages[0] || {};
+
+    return {
+      currentBar: 1,
+      currentBeat: -1,
+      currentStep: -1,
+      currentStageBar: 1,
+      currentStageIndex: 0,
+      currentStageIsRest: Boolean(stage.isRest),
+      currentStageName: stage.name || '',
+      currentStageTotalBars: stage.bars || 1
+    };
+  },
+
+  resetScheduler(delayMs) {
+    this._absoluteStep = 0;
+    this._fallbackWarned = false;
+    this._nextStepAt = Date.now() + (delayMs || 60);
   },
 
   scheduleLoop() {
@@ -145,7 +276,7 @@ Page({
     const now = Date.now();
     let guard = 0;
 
-    while (this._nextStepAt <= now + this._lookaheadMs && guard < 8) {
+    while (this._nextStepAt <= now + this._lookaheadMs && guard < 12) {
       const dueIn = Math.max(0, this._nextStepAt - now);
       const absoluteStep = this._absoluteStep;
 
@@ -156,60 +287,117 @@ Page({
       }, dueIn);
 
       this._absoluteStep += 1;
-      this._nextStepAt += this.getStepDuration();
+      this._nextStepAt += this.getStepDuration(absoluteStep);
       guard += 1;
     }
 
     this._timer = setTimeout(() => this.scheduleLoop(), this._timerIntervalMs);
   },
 
-  getStepDuration() {
+  isExerciseMode(mode) {
+    const currentMode = mode || this.data.mode;
+    return currentMode === 'single' || currentMode === 'dotted';
+  },
+
+  getStepDuration(absoluteStep) {
     const beatDuration = 60000 / this.data.bpm;
 
-    if (this.data.mode === 'pattern') {
+    if (this.isExerciseMode()) {
       return beatDuration / this.data.activePattern.stepsPerBeat;
+    }
+
+    if (this.data.mode === 'continuous') {
+      const runtime = this.getActiveRoutineRuntime();
+      const entry = this.getRoutineStep(absoluteStep || 0, runtime);
+      const stage = runtime.stages[entry.stageIndex] || runtime.stages[0];
+
+      return beatDuration / stage.stepsPerBeat;
     }
 
     return beatDuration;
   },
 
   getCycleLength() {
-    if (this.data.mode === 'pattern') {
+    if (this.isExerciseMode()) {
       return this.data.activePattern.totalSteps;
     }
 
-    return this.data.activePattern.beats;
+    return 4;
+  },
+
+  getMeasureLength() {
+    if (this.isExerciseMode()) {
+      return this.data.activePattern.measureLength;
+    }
+
+    return 4;
   },
 
   fireStep(absoluteStep) {
+    if (this.data.mode === 'continuous') {
+      this.fireRoutineStep(absoluteStep);
+      return;
+    }
+
     const cycleLength = this.getCycleLength();
+    const measureLength = this.getMeasureLength();
     const step = absoluteStep % cycleLength;
-    const beat = this.data.mode === 'pattern'
-      ? Math.floor(step / this.data.activePattern.stepsPerBeat)
-      : step;
-    const currentStep = this.data.mode === 'pattern'
-      ? step
-      : beat * this.data.activePattern.stepsPerBeat;
+    const measureStep = step % measureLength;
+    const beat = this.isExerciseMode()
+      ? Math.floor(measureStep / this.data.activePattern.stepsPerBeat)
+      : measureStep;
 
     this.setData({
-      currentBar: Math.floor(absoluteStep / cycleLength) + 1,
+      currentBar: Math.floor(absoluteStep / measureLength) + 1,
       currentBeat: beat,
-      currentStep
+      currentStep: this.isExerciseMode() ? step : -1
     });
 
-    this.playStep(step, beat);
+    this.playStep(step, measureStep, beat);
   },
 
-  playStep(step, beat) {
-    const isDownbeat = beat === 0 && (this.data.mode === 'click' || step === 0);
+  fireRoutineStep(absoluteStep) {
+    const runtime = this.getActiveRoutineRuntime();
+    const entry = this.getRoutineStep(absoluteStep, runtime);
+    const stage = runtime.stages[entry.stageIndex] || runtime.stages[0];
+    const cycleIndex = Math.floor(absoluteStep / runtime.totalSteps);
+
+    this.setData({
+      currentBar: cycleIndex * runtime.totalBars + entry.globalBar,
+      currentBeat: entry.beat,
+      currentStageBar: entry.stageBar,
+      currentStageIndex: entry.stageIndex,
+      currentStageIsRest: Boolean(stage.isRest),
+      currentStageName: stage.name,
+      currentStageTotalBars: stage.bars,
+      currentStep: entry.stageStep
+    });
+
+    this.playRoutineStep(entry, stage);
+  },
+
+  getActiveRoutineRuntime() {
+    return continuousRoutineRuntimeViews[this.data.selectedRoutineIndex] || continuousRoutineRuntimeViews[0];
+  },
+
+  getRoutineStep(absoluteStep, runtime) {
+    const activeRuntime = runtime || this.getActiveRoutineRuntime();
+    const step = absoluteStep % activeRuntime.totalSteps;
+
+    return activeRuntime.timeline[step] || activeRuntime.timeline[0];
+  },
+
+  playStep(step, measureStep, beat) {
     const sounds = [];
+    const isDownbeat = measureStep === 0;
 
     if (this.data.mode === 'click') {
       sounds.push(isDownbeat ? 'accent' : 'tick');
     } else {
       const pattern = this.data.activePattern;
+      const isBeatStart = measureStep % pattern.stepsPerBeat === 0;
 
-      if (this.data.clickOverlay && step % pattern.stepsPerBeat === 0) {
+      if (this.data.clickOverlay && isBeatStart) {
         sounds.push(isDownbeat ? 'accent' : 'tick');
       }
 
@@ -225,7 +413,27 @@ Page({
     }
 
     if (this.data.vibrationEnabled && (isDownbeat || sounds.length)) {
-      this.vibrate(isDownbeat);
+      this.vibrate(isDownbeat || beat === 0);
+    }
+  },
+
+  playRoutineStep(entry, stage) {
+    const sounds = [];
+
+    if (this.data.clickOverlay && entry.isBeatStart) {
+      sounds.push(entry.isDownbeat ? 'accent' : 'tick');
+    }
+
+    if (!stage.isRest) {
+      sounds.push('rim');
+    }
+
+    if (this.data.soundEnabled) {
+      this.playSounds(sounds);
+    }
+
+    if (this.data.vibrationEnabled && (entry.isDownbeat || sounds.length)) {
+      this.vibrate(entry.isDownbeat || entry.beat === 0);
     }
   },
 
@@ -282,7 +490,7 @@ Page({
         context.resume();
       }
     } catch (error) {
-      // Some base libraries expose state without resume; the next note can still succeed.
+      // Older base libraries can expose state without resume.
     }
 
     this._audioAvailable = true;
@@ -305,42 +513,6 @@ Page({
   playTone(kind, delay) {
     const context = this._audioCtx;
     const startAt = (context.currentTime || 0) + delay;
-
-    if (kind === 'kick') {
-      this.playOscillator({
-        duration: 0.11,
-        from: 150,
-        startAt,
-        to: 55,
-        type: 'sine',
-        volume: 0.18
-      });
-      return;
-    }
-
-    if (kind === 'snare') {
-      this.playNoise(startAt, 0.07, 0.11);
-      this.playOscillator({
-        duration: 0.045,
-        from: 210,
-        startAt,
-        to: 180,
-        type: 'triangle',
-        volume: 0.05
-      });
-      return;
-    }
-
-    if (kind === 'hat') {
-      this.playOscillator({
-        duration: 0.026,
-        from: 5200,
-        startAt,
-        type: 'triangle',
-        volume: 0.035
-      });
-      return;
-    }
 
     if (kind === 'accent') {
       this.playOscillator({
@@ -365,7 +537,7 @@ Page({
     }
 
     this.playOscillator({
-      duration: 0.038,
+      duration: 0.036,
       from: 820,
       startAt,
       type: 'square',
@@ -399,63 +571,6 @@ Page({
       oscillator.stop(startAt + duration + 0.02);
     } catch (error) {
       this._audioAvailable = false;
-    }
-  },
-
-  playNoise(startAt, duration, volume) {
-    const context = this._audioCtx;
-
-    if (!context.createBuffer || !context.createBufferSource) {
-      this.playOscillator({
-        duration,
-        from: 260,
-        startAt,
-        type: 'triangle',
-        volume
-      });
-      return;
-    }
-
-    try {
-      const sampleRate = context.sampleRate || 44100;
-      const frameCount = Math.max(1, Math.floor(sampleRate * duration));
-      const buffer = context.createBuffer(1, frameCount, sampleRate);
-      const data = buffer.getChannelData(0);
-
-      for (let index = 0; index < frameCount; index += 1) {
-        const envelope = 1 - index / frameCount;
-        data[index] = (Math.random() * 2 - 1) * envelope;
-      }
-
-      const source = context.createBufferSource();
-      const gain = context.createGain();
-      const output = context.createBiquadFilter ? context.createBiquadFilter() : gain;
-
-      if (output !== gain) {
-        output.type = 'highpass';
-        this.setParam(output.frequency, 1600, startAt);
-        source.connect(output);
-        output.connect(gain);
-      } else {
-        source.connect(gain);
-      }
-
-      this.setParam(gain.gain, 0.0001, startAt);
-      this.rampParam(gain.gain, volume, startAt + 0.002);
-      this.rampParam(gain.gain, 0.0001, startAt + duration);
-
-      source.buffer = buffer;
-      gain.connect(context.destination);
-      source.start(startAt);
-      source.stop(startAt + duration + 0.02);
-    } catch (error) {
-      this.playOscillator({
-        duration,
-        from: 260,
-        startAt,
-        type: 'triangle',
-        volume
-      });
     }
   },
 
@@ -511,30 +626,96 @@ Page({
       return;
     }
 
+    this.setData({ mode });
+
+    if (mode === 'single') {
+      this.applyExercise('single', this.data.selectedSingleIndex, true);
+      return;
+    }
+
+    if (mode === 'dotted') {
+      this.applyExercise('dotted', this.data.selectedDottedIndex, true);
+      return;
+    }
+
+    if (mode === 'continuous') {
+      this.applyRoutine(this.data.selectedRoutineIndex, true);
+      return;
+    }
+
     this.setData({
-      currentBar: 1,
-      currentBeat: -1,
-      currentStep: -1,
-      mode
+      ...this.getResetState(),
+      beatDots: Array.from({ length: 4 }, (_, beatIndex) => beatIndex)
     });
+
+    if (this.data.isPlaying) {
+      this.resetScheduler(60);
+    }
   },
 
-  onPatternChange(event) {
-    this.applyPattern(Number(event.detail.value), true);
+  selectExercise(event) {
+    const group = event.currentTarget.dataset.group || this.data.mode;
+    const index = Number(event.currentTarget.dataset.index);
+
+    this.applyExercise(group, index, true);
   },
 
-  applyPattern(index, keepTempo) {
-    const pattern = patternViews[index] || patternViews[0];
-
-    this.setData({
+  applyExercise(group, index, keepTempo) {
+    const isDotted = group === 'dotted';
+    const patternList = isDotted ? dottedPatternViews : singlePatternViews;
+    const resolvedIndex = patternList[index] ? index : 0;
+    const pattern = patternList[resolvedIndex];
+    const updates = {
       activePattern: pattern,
       beatDots: Array.from({ length: pattern.beats }, (_, beatIndex) => beatIndex),
       bpm: keepTempo ? this.data.bpm : pattern.defaultBpm,
       currentBar: 1,
       currentBeat: -1,
       currentStep: -1,
-      selectedPatternIndex: index
+      exercisePatterns: patternList,
+      selectedExerciseIndex: resolvedIndex
+    };
+
+    if (isDotted) {
+      updates.selectedDottedIndex = resolvedIndex;
+    } else {
+      updates.selectedSingleIndex = resolvedIndex;
+    }
+
+    this.setData(updates);
+
+    if (this.data.isPlaying) {
+      this.resetScheduler(60);
+    }
+  },
+
+  selectRoutine(event) {
+    this.applyRoutine(Number(event.currentTarget.dataset.index), true);
+  },
+
+  applyRoutine(index, keepTempo) {
+    const resolvedIndex = continuousRoutineViews[index] ? index : 0;
+    const routine = continuousRoutineViews[resolvedIndex];
+    const firstStage = routine.stages[0] || {};
+
+    this.setData({
+      activeRoutine: routine,
+      beatDots: Array.from({ length: routine.beats || 4 }, (_, beatIndex) => beatIndex),
+      bpm: keepTempo ? this.data.bpm : routine.defaultBpm,
+      currentBar: 1,
+      currentBeat: -1,
+      currentStageBar: 1,
+      currentStageIndex: 0,
+      currentStageIsRest: Boolean(firstStage.isRest),
+      currentStageName: firstStage.name || '',
+      currentStageTotalBars: firstStage.bars || 1,
+      currentStep: -1,
+      selectedRoutineIndex: resolvedIndex
     });
+
+    if (this.data.isPlaying) {
+      this.resetScheduler(60);
+    }
   },
 
   onSwitchChange(event) {

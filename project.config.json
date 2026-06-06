@@ -1,14 +1,68 @@
 {
-  "description": "A simple WeChat Mini Program metronome for drum practice.",
+  "description": "A WeChat Mini Program metronome and subdivision practice assistant for drummers.",
   "compileType": "miniprogram",
   "miniprogramRoot": "./",
   "projectname": "wechat-metronome",
-  "appid": "touristappid",
+  "appid": "wxee53f3e94f69f2fe",
   "setting": {
     "es6": true,
     "postcss": true,
     "minified": true,
-    "urlCheck": false
+    "urlCheck": false,
+    "compileWorklet": false,
+    "uglifyFileName": false,
+    "uploadWithSourceMap": true,
+    "enhance": false,
+    "packNpmManually": false,
+    "packNpmRelationList": [],
+    "minifyWXSS": true,
+    "minifyWXML": true,
+    "localPlugins": false,
+    "disableUseStrict": false,
+    "useCompilerPlugins": false,
+    "condition": false,
+    "swc": false,
+    "disableSWC": true,
+    "babelSetting": {
+      "ignore": [],
+      "disablePlugins": [],
+      "outputPath": ""
+    }
   },
-  "condition": {}
+  "condition": {},
+  "simulatorPluginLibVersion": {},
+  "packOptions": {
+    "ignore": [
+      {
+        "type": "folder",
+        "value": ".agents"
+      },
+      {
+        "type": "folder",
+        "value": ".git"
+      },
+      {
+        "type": "file",
+        "value": ".gitignore"
+      },
+      {
+        "type": "file",
+        "value": "LICENSE"
+      },
+      {
+        "type": "file",
+        "value": "README.md"
+      },
+      {
+        "type": "file",
+        "value": "project.private.config.json"
+      },
+      {
+        "type": "file",
+        "value": "skills-lock.json"
+      }
+    ],
+    "include": []
+  },
+  "editorSetting": {}
 }

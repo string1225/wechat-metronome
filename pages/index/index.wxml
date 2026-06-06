@@ -1,13 +1,14 @@
 <view class="page-shell">
   <view class="tempo-band">
     <view class="brand-row">
-      <view>
+      <image class="brand-avatar" src="/assets/drum-practice-assistant-avatar.jpg" mode="aspectFill" />
+      <view class="brand-copy">
         <text class="eyebrow">DRUM PRACTICE</text>
-        <view class="app-title">Pocket Groove</view>
+        <view class="app-title">{{appName}}</view>
       </view>
       <view class="bar-counter">
         <text class="bar-number">{{currentBar}}</text>
-        <text class="bar-label">BAR</text>
+        <text class="bar-label">小节</text>
       </view>
     </view>
 
@@ -24,9 +25,11 @@
 
     <view class="transport-row">
       <button class="icon-button" bindtap="changeBpm" data-step="-5" hover-class="button-hover">-5</button>
+      <button class="icon-button" bindtap="changeBpm" data-step="-1" hover-class="button-hover">-1</button>
       <button class="play-button {{isPlaying ? 'is-playing' : ''}}" bindtap="togglePlay" hover-class="button-hover">
         <text>{{isPlaying ? '停止' : '开始'}}</text>
       </button>
+      <button class="icon-button" bindtap="changeBpm" data-step="1" hover-class="button-hover">+1</button>
       <button class="icon-button" bindtap="changeBpm" data-step="5" hover-class="button-hover">+5</button>
     </view>
 
@@ -36,8 +39,8 @@
       max="{{maxBpm}}"
       value="{{bpm}}"
       step="1"
-      activeColor="#e2574c"
-      backgroundColor="#363330"
+      activeColor="#ef6351"
+      backgroundColor="#343135"
       block-color="#ffffff"
       block-size="22"
       bindchanging="onTempoSlide"
@@ -46,76 +49,179 @@
   </view>
 
   <view class="mode-strip">
-    <button class="mode-button {{mode == 'pattern' ? 'is-active' : ''}}" data-mode="pattern" bindtap="setMode">练习</button>
-    <button class="mode-button {{mode == 'click' ? 'is-active' : ''}}" data-mode="click" bindtap="setMode">节拍器</button>
+    <button class="mode-button {{mode == 'click' ? 'is-active' : ''}}" data-mode="click" bindtap="setMode">基础节拍器</button>
+    <button class="mode-button {{mode == 'single' ? 'is-active' : ''}}" data-mode="single" bindtap="setMode">单击练习</button>
+    <button class="mode-button {{mode == 'dotted' ? 'is-active' : ''}}" data-mode="dotted" bindtap="setMode">附点练习</button>
+    <button class="mode-button {{mode == 'continuous' ? 'is-active' : ''}}" data-mode="continuous" bindtap="setMode">连续练习</button>
   </view>
 
   <view class="control-grid">
     <label class="switch-line">
       <text>声音</text>
-      <switch checked="{{soundEnabled}}" data-key="soundEnabled" bindchange="onSwitchChange" color="#e2574c" />
+      <switch checked="{{soundEnabled}}" data-key="soundEnabled" bindchange="onSwitchChange" color="#ef6351" />
     </label>
     <label class="switch-line">
       <text>震动</text>
-      <switch checked="{{vibrationEnabled}}" data-key="vibrationEnabled" bindchange="onSwitchChange" color="#e2574c" />
+      <switch checked="{{vibrationEnabled}}" data-key="vibrationEnabled" bindchange="onSwitchChange" color="#ef6351" />
     </label>
-    <label class="switch-line {{mode == 'pattern' ? '' : 'is-muted'}}">
-      <text>参照拍</text>
-      <switch checked="{{clickOverlay}}" disabled="{{mode != 'pattern'}}" data-key="clickOverlay" bindchange="onSwitchChange" color="#e2574c" />
+    <label class="switch-line {{mode == 'click' ? 'is-muted' : ''}}">
+      <text>四分参照</text>
+      <switch checked="{{clickOverlay}}" disabled="{{mode == 'click'}}" data-key="clickOverlay" bindchange="onSwitchChange" color="#ef6351" />
     </label>
   </view>
 
-  <view class="pattern-panel" wx:if="{{mode == 'pattern'}}">
-    <picker mode="selector" range="{{patternNames}}" value="{{selectedPatternIndex}}" bindchange="onPatternChange">
-      <view class="picker-line">
-        <view>
-          <text class="section-label">当前练习</text>
-          <view class="pattern-name">{{activePattern.name}}</view>
-        </view>
-        <text class="picker-arrow">⌄</text>
+  <view class="click-panel" wx:if="{{mode == 'click'}}">
+    <view class="section-row">
+      <view>
+        <text class="section-label">基础节拍器</text>
+        <view class="section-title">4/4 四分音符</view>
       </view>
-    </picker>
-
-    <view class="pattern-meta">
-      <text>{{activePattern.description}}</text>
-      <text class="focus-text">{{activePattern.focus}}</text>
+      <text class="section-tag">重音在 1</text>
     </view>
 
-    <view class="ruler-row">
-      <view class="track-name"></view>
-      <view class="step-strip">
-        <block wx:for="{{activePattern.ruler}}" wx:for-item="mark" wx:for-index="stepIndex" wx:key="step">
-          <view class="ruler-cell {{mark.isBeat ? 'is-beat' : ''}} {{currentStep == stepIndex && isPlaying ? 'is-current' : ''}}">
-            <text>{{mark.label}}</text>
-          </view>
-        </block>
-      </view>
-    </view>
-
-    <block wx:for="{{activePattern.tracks}}" wx:for-item="track" wx:key="key">
-      <view class="track-row">
-        <view class="track-name">
-          <text class="track-short">{{track.short}}</text>
-          <text class="track-label">{{track.label}}</text>
-        </view>
-        <view class="step-strip">
-          <block wx:for="{{track.cells}}" wx:for-item="cell" wx:for-index="cellIndex" wx:key="step">
-            <view class="step-cell {{cell.isBeat ? 'is-beat' : ''}} {{cell.hit ? 'has-hit' : ''}} {{currentStep == cellIndex && isPlaying ? 'is-current' : ''}}">
-              <text wx:if="{{cell.label}}">{{cell.label}}</text>
-            </view>
-          </block>
-        </view>
-      </view>
-    </block>
-  </view>
-
-  <view class="click-panel" wx:else>
     <view class="click-meter">
       <block wx:for="{{beatDots}}" wx:key="*this">
         <view class="meter-tile {{index == 0 ? 'is-downbeat' : ''}} {{currentBeat == index && isPlaying ? 'is-active' : ''}}">
           <text>{{index + 1}}</text>
         </view>
       </block>
+    </view>
+  </view>
+
+  <view class="practice-panel" wx:elif="{{mode == 'single' || mode == 'dotted'}}">
+    <view class="section-row">
+      <view>
+        <text class="section-label">{{mode == 'single' ? '架子鼓练习' : '附点练习'}}</text>
+        <view class="section-title">{{mode == 'single' ? '细分音符单击' : '8分附点与切分'}}</view>
+      </view>
+      <text class="section-tag">{{activePattern.groupLabel}}</text>
+    </view>
+
+    <view class="exercise-grid">
+      <block wx:for="{{exercisePatterns}}" wx:for-index="exerciseIndex" wx:key="id">
+        <button
+          class="exercise-button {{selectedExerciseIndex == exerciseIndex ? 'is-active' : ''}}"
+          data-group="{{mode}}"
+          data-index="{{exerciseIndex}}"
+          bindtap="selectExercise"
+          hover-class="button-hover"
+        >
+          <text class="exercise-name">{{item.shortName}}</text>
+          <text class="exercise-label">{{item.groupLabel}}</text>
+        </button>
+      </block>
+    </view>
+
+    <view class="practice-card">
+      <view class="practice-heading">
+        <view>
+          <text class="section-label">当前练习</text>
+          <view class="pattern-name">{{activePattern.name}}</view>
+        </view>
+        <view class="subdivision-badge">
+          <text>{{activePattern.stepsPerBeat}}</text>
+          <text>每拍</text>
+        </view>
+      </view>
+
+      <view class="pattern-meta">
+        <text>{{activePattern.description}}</text>
+        <text class="focus-text">{{activePattern.focus}}</text>
+        <text class="count-text">{{activePattern.countPattern}}</text>
+      </view>
+
+      <view class="grid-shell">
+        <view class="track-labels">
+          <view class="ruler-spacer"></view>
+          <block wx:for="{{activePattern.tracks}}" wx:key="key">
+            <view class="track-label-cell">
+              <text class="track-short">{{item.short}}</text>
+              <text class="track-label">{{item.label}}</text>
+            </view>
+          </block>
+        </view>
+
+        <scroll-view class="pattern-scroll" scroll-x="true" enhanced="true" show-scrollbar="false">
+          <view class="step-table" style="width: {{activePattern.gridWidth}}rpx;">
+            <view class="step-strip">
+              <block wx:for="{{activePattern.ruler}}" wx:for-item="mark" wx:for-index="stepIndex" wx:key="step">
+                <view
+                  class="ruler-cell {{mark.isBeat ? 'is-beat' : ''}} {{mark.isBarStart ? 'is-bar-start' : ''}} {{currentStep == stepIndex && isPlaying ? 'is-current' : ''}}"
+                  style="width: {{activePattern.cellWidth}}rpx;"
+                >
+                  <text>{{mark.label}}</text>
+                </view>
+              </block>
+            </view>
+
+            <block wx:for="{{activePattern.tracks}}" wx:for-item="track" wx:key="key">
+              <view class="step-strip track-step-row">
+                <block wx:for="{{track.cells}}" wx:for-item="cell" wx:for-index="cellIndex" wx:key="step">
+                  <view
+                    class="step-cell {{cell.isBeat ? 'is-beat' : ''}} {{cell.isBarStart ? 'is-bar-start' : ''}} {{cell.hit ? 'has-hit' : ''}} {{currentStep == cellIndex && isPlaying ? 'is-current' : ''}}"
+                    style="width: {{activePattern.cellWidth}}rpx;"
+                  >
+                    <text wx:if="{{cell.label}}">{{cell.label}}</text>
+                  </view>
+                </block>
+              </view>
+            </block>
+          </view>
+        </scroll-view>
+      </view>
+    </view>
+  </view>
+
+  <view class="practice-panel" wx:else>
+    <view class="section-row">
+      <view>
+        <text class="section-label">连续练习</text>
+        <view class="section-title">8分到32分再回来</view>
+      </view>
+      <text class="section-tag">{{activeRoutine.groupLabel}}</text>
+    </view>
+
+    <view class="routine-grid">
+      <block wx:for="{{continuousRoutines}}" wx:for-index="routineIndex" wx:key="id">
+        <button
+          class="routine-button {{selectedRoutineIndex == routineIndex ? 'is-active' : ''}}"
+          data-index="{{routineIndex}}"
+          bindtap="selectRoutine"
+          hover-class="button-hover"
+        >
+          <text class="exercise-name">{{item.shortName}}</text>
+          <text class="exercise-label">{{item.groupLabel}}</text>
+        </button>
+      </block>
+    </view>
+
+    <view class="routine-card">
+      <view class="practice-heading">
+        <view>
+          <text class="section-label">当前段落</text>
+          <view class="pattern-name">{{currentStageName}}</view>
+        </view>
+        <view class="stage-badge {{currentStageIsRest ? 'is-rest' : ''}}">
+          <text>{{currentStageBar}}/{{currentStageTotalBars}}</text>
+          <text>小节</text>
+        </view>
+      </view>
+
+      <view class="pattern-meta">
+        <text>{{activeRoutine.description}}</text>
+        <text class="focus-text">{{activeRoutine.focus}}</text>
+      </view>
+
+      <scroll-view class="routine-scroll" scroll-x="true" enhanced="true" show-scrollbar="false">
+        <view class="routine-stage-row">
+          <block wx:for="{{activeRoutine.stages}}" wx:for-index="stageIndex" wx:key="id">
+            <view class="routine-stage {{currentStageIndex == stageIndex ? 'is-current' : ''}} {{item.isRest ? 'is-rest' : ''}}">
+              <text class="routine-stage-name">{{item.shortName}}</text>
+              <text class="routine-stage-meta">{{item.bars}}小节</text>
+            </view>
+          </block>
+        </view>
+      </scroll-view>
     </view>
   </view>
 

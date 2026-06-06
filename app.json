@@ -3,11 +3,12 @@
     "pages/index/index"
   ],
   "window": {
-    "navigationBarTitleText": "Pocket Groove",
+    "navigationBarTitleText": "架子鼓练习助手",
     "navigationBarBackgroundColor": "#101113",
     "navigationBarTextStyle": "white",
     "backgroundColor": "#f5f2ea"
   },
+  "lazyCodeLoading": "requiredComponents",
   "style": "v2",
   "sitemapLocation": "sitemap.json"
 }

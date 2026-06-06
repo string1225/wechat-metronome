@@ -1,5 +1,5 @@
 App({
   globalData: {
-    appName: 'Pocket Groove'
+    appName: '架子鼓练习助手'
   }
 });
