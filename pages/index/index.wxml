@@ -58,7 +58,7 @@
   <label class="boost-line">
     <view>
       <text class="boost-title">超大声</text>
-      <text class="boost-copy">2倍音量</text>
+      <text class="boost-copy">5倍音量</text>
     </view>
     <switch checked="{{volumeBoostEnabled}}" bindchange="onVolumeBoostChange" color="#ef6351" />
   </label>

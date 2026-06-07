@@ -596,7 +596,7 @@ Page({
       const gain = context.createGain();
       const startAt = options.startAt;
       const duration = options.duration;
-      const volume = this.data.volumeBoostEnabled ? options.volume * 2 : options.volume;
+      const volume = this.data.volumeBoostEnabled ? options.volume * 5 : options.volume;
 
       oscillator.type = options.type;
       this.setParam(oscillator.frequency, options.from, startAt);
