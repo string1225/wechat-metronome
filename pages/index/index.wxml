@@ -205,7 +205,7 @@
         <text class="focus-text">{{activeRoutine.focus}}</text>
       </view>
 
-      <scroll-view class="routine-scroll" scroll-x="true" enhanced="true" show-scrollbar="false">
+      <scroll-view class="routine-scroll" scroll-x="true" scroll-left="{{routineScrollLeft}}" scroll-with-animation="true" enhanced="true" show-scrollbar="false">
         <view class="routine-stage-row">
           <block wx:for="{{activeRoutine.stages}}" wx:for-index="stageIndex" wx:key="id">
             <view class="routine-stage {{currentStageIndex == stageIndex ? 'is-current' : ''}} {{item.isRest ? 'is-rest' : ''}}">

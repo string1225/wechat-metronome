@@ -7,6 +7,8 @@ const {
 const APP_NAME = '架子鼓练习助手';
 const MIN_BPM = 40;
 const MAX_BPM = 220;
+const ROUTINE_STAGE_GAP_RPX = 8;
+const ROUTINE_STAGE_WIDTH_RPX = 88;
 
 function clampTempo(value) {
   const tempo = Number(value);
@@ -163,6 +165,7 @@ Page({
     currentStageBar: 1,
     currentStageTotalBars: continuousRoutineViews[0].stages[0].bars,
     currentStageIsRest: false,
+    routineScrollLeft: 0,
     singlePatterns: singlePatternViews,
     rhythmPatterns: rhythmPatternViews,
     exercisePatterns: singlePatternViews,
@@ -259,7 +262,8 @@ Page({
       currentStageIndex: 0,
       currentStageIsRest: Boolean(stage.isRest),
       currentStageName: stage.name || '',
-      currentStageTotalBars: stage.bars || 1
+      currentStageTotalBars: stage.bars || 1,
+      routineScrollLeft: 0
     };
   },
 
@@ -362,8 +366,8 @@ Page({
     const entry = this.getRoutineStep(absoluteStep, runtime);
     const stage = runtime.stages[entry.stageIndex] || runtime.stages[0];
     const cycleIndex = Math.floor(absoluteStep / runtime.totalSteps);
-
-    this.setData({
+    const stageChanged = entry.stageIndex !== this.data.currentStageIndex;
+    const updates = {
       currentBar: cycleIndex * runtime.totalBars + entry.globalBar,
       currentBeat: entry.beat,
       currentStageBar: entry.stageBar,
@@ -372,9 +376,47 @@ Page({
       currentStageName: stage.name,
       currentStageTotalBars: stage.bars,
       currentStep: entry.stageStep
-    });
+    };
+
+    if (stageChanged) {
+      updates.routineScrollLeft = this.getRoutineScrollLeft(entry.stageIndex);
+    }
+
+    this.setData(updates);
 
     this.playRoutineStep(entry, stage);
+  },
+
+  getRpxRatio() {
+    if (typeof wx !== 'undefined' && wx.getSystemInfoSync) {
+      try {
+        const info = wx.getSystemInfoSync();
+
+        if (info && info.windowWidth) {
+          return info.windowWidth / 750;
+        }
+      } catch (error) {
+        // Unit conversion falls back to 1px per rpx outside runtime.
+      }
+    }
+
+    return 1;
+  },
+
+  getRoutineScrollLeft(stageIndex) {
+    const routine = this.data.activeRoutine || continuousRoutineViews[0];
+    const stageCount = routine.stages ? routine.stages.length : 0;
+
+    if (!stageCount) {
+      return 0;
+    }
+
+    const stageWidth = ROUTINE_STAGE_WIDTH_RPX * this.getRpxRatio();
+    const stageGap = ROUTINE_STAGE_GAP_RPX * this.getRpxRatio();
+    const stageSpan = stageWidth + stageGap;
+    const safeIndex = Math.max(0, Math.min(stageCount - 1, stageIndex));
+
+    return Math.round(safeIndex * stageSpan);
   },
 
   getActiveRoutineRuntime() {
@@ -712,6 +754,7 @@ Page({
       currentStageName: firstStage.name || '',
       currentStageTotalBars: firstStage.bars || 1,
       currentStep: -1,
+      routineScrollLeft: 0,
       selectedRoutineIndex: resolvedIndex
     });
 

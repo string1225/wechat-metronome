@@ -495,6 +495,8 @@
   display: inline-flex;
   gap: 8rpx;
   min-width: 100%;
+  box-sizing: border-box;
+  padding: 0 calc(50% - 44rpx);
 }
 
 .routine-stage {
