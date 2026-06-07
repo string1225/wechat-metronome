@@ -16,7 +16,7 @@
 .transport-row,
 .section-row,
 .practice-heading,
-.boost-line,
+.boost-chip,
 .grid-shell {
   display: flex;
   align-items: center;
@@ -85,6 +85,14 @@
 
 .tempo-readout {
   margin-top: 24rpx;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18rpx;
+}
+
+.tempo-main {
+  min-width: 0;
   display: flex;
   align-items: flex-end;
 }
@@ -200,14 +208,13 @@
   background: #171619;
 }
 
-.boost-line {
-  min-height: 82rpx;
-  margin-top: 14rpx;
-  justify-content: space-between;
-  padding: 0 20rpx;
-  color: #171619;
-  background: #fffefa;
-  border: 1rpx solid #dfe6d8;
+.boost-chip {
+  min-height: 74rpx;
+  flex: 0 0 auto;
+  justify-content: flex-end;
+  padding: 8rpx 0 8rpx 16rpx;
+  color: #fffaf0;
+  background: #27252a;
   border-radius: 8rpx;
   box-sizing: border-box;
 }
@@ -218,16 +225,22 @@
 }
 
 .boost-title {
-  font-size: 28rpx;
+  font-size: 22rpx;
   font-weight: 900;
   line-height: 1.1;
 }
 
 .boost-copy {
-  margin-top: 6rpx;
-  color: #bd4c44;
-  font-size: 20rpx;
+  margin-top: 5rpx;
+  color: #f3b23f;
+  font-size: 18rpx;
   font-weight: 800;
+}
+
+.boost-switch {
+  margin-left: -8rpx;
+  transform: scale(0.72);
+  transform-origin: right center;
 }
 
 .click-panel,

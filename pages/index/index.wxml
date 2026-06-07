@@ -6,15 +6,24 @@
         <text class="eyebrow">DRUM PRACTICE</text>
         <view class="app-title">{{appName}}</view>
       </view>
+      <label class="boost-chip">
+        <view>
+          <text class="boost-title">超大声</text>
+          <text class="boost-copy">5倍</text>
+        </view>
+        <switch class="boost-switch" checked="{{volumeBoostEnabled}}" bindchange="onVolumeBoostChange" color="#ef6351" />
+      </label>
+    </view>
+
+    <view class="tempo-readout">
+      <view class="tempo-main">
+        <text class="tempo-number">{{bpm}}</text>
+        <text class="tempo-unit">BPM</text>
+      </view>
       <view class="bar-counter">
         <text class="bar-number">{{currentBar}}</text>
         <text class="bar-label">小节</text>
       </view>
-    </view>
-
-    <view class="tempo-readout">
-      <text class="tempo-number">{{bpm}}</text>
-      <text class="tempo-unit">BPM</text>
     </view>
 
     <view class="beat-dots">
@@ -54,14 +63,6 @@
     <button class="mode-button {{mode == 'rhythm' ? 'is-active' : ''}}" data-mode="rhythm" bindtap="setMode">节奏练习</button>
     <button class="mode-button {{mode == 'continuous' ? 'is-active' : ''}}" data-mode="continuous" bindtap="setMode">连续练习</button>
   </view>
-
-  <label class="boost-line">
-    <view>
-      <text class="boost-title">超大声</text>
-      <text class="boost-copy">5倍音量</text>
-    </view>
-    <switch checked="{{volumeBoostEnabled}}" bindchange="onVolumeBoostChange" color="#ef6351" />
-  </label>
 
   <view class="click-panel" wx:if="{{mode == 'click'}}">
     <view class="section-row">
