@@ -55,6 +55,14 @@
     <button class="mode-button {{mode == 'continuous' ? 'is-active' : ''}}" data-mode="continuous" bindtap="setMode">连续练习</button>
   </view>
 
+  <label class="boost-line">
+    <view>
+      <text class="boost-title">超大声</text>
+      <text class="boost-copy">2倍音量</text>
+    </view>
+    <switch checked="{{volumeBoostEnabled}}" bindchange="onVolumeBoostChange" color="#ef6351" />
+  </label>
+
   <view class="click-panel" wx:if="{{mode == 'click'}}">
     <view class="section-row">
       <view>

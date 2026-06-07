@@ -9,6 +9,7 @@
 - 连续练习支持从 8 分到 32 分再回到 8 分，每种 4 小节。
 - 练习内容由 `utils/patterns.js` 数据驱动，后续新增练习只需要增加一个模式数据。
 - 音频使用 `wx.createWebAudioContext` 合成短促 click/rim 音色。
+- 超大声开关会把合成音频增益提高到 2 倍。
 - 当前环境不支持 WebAudio 时，保留视觉提示。
 - 计时采用 look-ahead 调度，比直接 `setInterval` 更适合节拍器场景。
 

@@ -177,6 +177,7 @@ Page({
     soundEnabled: true,
     vibrationEnabled: false,
     clickOverlay: true,
+    volumeBoostEnabled: false,
     audioStatus: '待启动'
   },
 
@@ -553,6 +554,7 @@ Page({
       const gain = context.createGain();
       const startAt = options.startAt;
       const duration = options.duration;
+      const volume = this.data.volumeBoostEnabled ? options.volume * 2 : options.volume;
 
       oscillator.type = options.type;
       this.setParam(oscillator.frequency, options.from, startAt);
@@ -562,7 +564,7 @@ Page({
       }
 
       this.setParam(gain.gain, 0.0001, startAt);
-      this.rampParam(gain.gain, options.volume, startAt + 0.003);
+      this.rampParam(gain.gain, volume, startAt + 0.003);
       this.rampParam(gain.gain, 0.0001, startAt + duration);
 
       oscillator.connect(gain);
@@ -716,6 +718,12 @@ Page({
     if (this.data.isPlaying) {
       this.resetScheduler(60);
     }
+  },
+
+  onVolumeBoostChange(event) {
+    this.setData({
+      volumeBoostEnabled: event.detail.value
+    });
   },
 
 });
