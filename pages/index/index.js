@@ -1,6 +1,6 @@
 const {
   continuousRoutines,
-  dottedPatterns,
+  rhythmPatterns,
   singlePatterns
 } = require('../../utils/patterns');
 
@@ -143,7 +143,7 @@ function buildRoutineView(runtime) {
 }
 
 const singlePatternViews = singlePatterns.map(buildPatternView);
-const dottedPatternViews = dottedPatterns.map(buildPatternView);
+const rhythmPatternViews = rhythmPatterns.map(buildPatternView);
 const continuousRoutineRuntimeViews = continuousRoutines.map(buildRoutineRuntime);
 const continuousRoutineViews = continuousRoutineRuntimeViews.map(buildRoutineView);
 
@@ -164,10 +164,10 @@ Page({
     currentStageTotalBars: continuousRoutineViews[0].stages[0].bars,
     currentStageIsRest: false,
     singlePatterns: singlePatternViews,
-    dottedPatterns: dottedPatternViews,
+    rhythmPatterns: rhythmPatternViews,
     exercisePatterns: singlePatternViews,
     selectedSingleIndex: 0,
-    selectedDottedIndex: 0,
+    selectedRhythmIndex: 0,
     selectedExerciseIndex: 0,
     activePattern: singlePatternViews[0],
     continuousRoutines: continuousRoutineViews,
@@ -219,7 +219,7 @@ Page({
 
     this.setData({
       ...this.getResetState(),
-      audioStatus: audioReady ? '音频已就绪' : '使用视觉/震动',
+      audioStatus: audioReady ? '音频已就绪' : '使用视觉提示',
       isPlaying: true
     });
 
@@ -296,7 +296,7 @@ Page({
 
   isExerciseMode(mode) {
     const currentMode = mode || this.data.mode;
-    return currentMode === 'single' || currentMode === 'dotted';
+    return currentMode === 'single' || currentMode === 'rhythm';
   },
 
   getStepDuration(absoluteStep) {
@@ -633,8 +633,8 @@ Page({
       return;
     }
 
-    if (mode === 'dotted') {
-      this.applyExercise('dotted', this.data.selectedDottedIndex, true);
+    if (mode === 'rhythm') {
+      this.applyExercise('rhythm', this.data.selectedRhythmIndex, true);
       return;
     }
 
@@ -661,8 +661,8 @@ Page({
   },
 
   applyExercise(group, index, keepTempo) {
-    const isDotted = group === 'dotted';
-    const patternList = isDotted ? dottedPatternViews : singlePatternViews;
+    const isRhythm = group === 'rhythm';
+    const patternList = isRhythm ? rhythmPatternViews : singlePatternViews;
     const resolvedIndex = patternList[index] ? index : 0;
     const pattern = patternList[resolvedIndex];
     const updates = {
@@ -676,8 +676,8 @@ Page({
       selectedExerciseIndex: resolvedIndex
     };
 
-    if (isDotted) {
-      updates.selectedDottedIndex = resolvedIndex;
+    if (isRhythm) {
+      updates.selectedRhythmIndex = resolvedIndex;
     } else {
       updates.selectedSingleIndex = resolvedIndex;
     }
@@ -718,15 +718,4 @@ Page({
     }
   },
 
-  onSwitchChange(event) {
-    const key = event.currentTarget.dataset.key;
-
-    if (!key) {
-      return;
-    }
-
-    this.setData({
-      [key]: event.detail.value
-    });
-  }
 });

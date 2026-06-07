@@ -136,7 +136,7 @@ function makeGridHits(options) {
   return hits;
 }
 
-function makeDottedExercise(options) {
+function makeRhythmExercise(options) {
   const bars = 1;
   const stepsPerBeat = 4;
 
@@ -214,8 +214,41 @@ function makeRoutine(options) {
 
 const singlePatterns = subdivisionSpecs.map(makeSubdivisionExercise);
 
-const dottedPatterns = [
-  makeDottedExercise({
+const rhythmPatterns = [
+  makeRhythmExercise({
+    id: 'eighth-sixteenth-pair',
+    name: '前八后十六',
+    shortName: '前8后16',
+    groupLabel: '2:1:1',
+    placements: [0, 2, 3],
+    defaultBpm: 76,
+    countPattern: '1 e & a',
+    description: '16分底板里第1、3、4格落槌，先打一个8分再接两个16分。',
+    focus: '第3格进入要准，别把前面的8分音符打短。'
+  }),
+  makeRhythmExercise({
+    id: 'sixteenth-eighth-pair',
+    name: '前16后八',
+    shortName: '前16后8',
+    groupLabel: '1:1:2',
+    placements: [0, 1, 2],
+    defaultBpm: 76,
+    countPattern: '1 e & a',
+    description: '16分底板里第1、2、3格落槌，先打两个16分再接一个8分。',
+    focus: '第3格之后要留住空间，不要顺手补到第4格。'
+  }),
+  makeRhythmExercise({
+    id: 'eighth-syncopation',
+    name: '8分切分',
+    shortName: '切分',
+    groupLabel: '1:2:1',
+    placements: [0, 1, 3],
+    defaultBpm: 68,
+    countPattern: '1 e & a',
+    description: '第1、2、4格落槌，中间的8分音符跨过第3格。',
+    focus: '切分的中间一下要撑住，别被第3格的空位带乱。'
+  }),
+  makeRhythmExercise({
     id: 'dotted-eighth-front',
     name: '8分前附点',
     shortName: '前附点',
@@ -226,7 +259,7 @@ const dottedPatterns = [
     description: '16分底板里第1格和第4格落槌，手感是长短。',
     focus: '第4格不要抢，下一拍的第1格要稳稳落回去。'
   }),
-  makeDottedExercise({
+  makeRhythmExercise({
     id: 'dotted-eighth-back',
     name: '8分后附点',
     shortName: '后附点',
@@ -236,17 +269,6 @@ const dottedPatterns = [
     countPattern: '1 e & a',
     description: '16分底板里第1格和第2格落槌，手感是短长。',
     focus: '第2格之后保持住长音位置，别把后半拍填满。'
-  }),
-  makeDottedExercise({
-    id: 'eighth-syncopation',
-    name: '8分切分',
-    shortName: '切分',
-    groupLabel: '1:2:1',
-    placements: [0, 1, 3],
-    defaultBpm: 68,
-    countPattern: '1 e & a',
-    description: '第1、2、4格落槌，中间的8分音符跨过第3格。',
-    focus: '切分的中间一下要撑住，别被第3格的空位带乱。'
   })
 ];
 
@@ -275,6 +297,6 @@ const continuousRoutines = [
 
 module.exports = {
   continuousRoutines,
-  dottedPatterns,
+  rhythmPatterns,
   singlePatterns
 };

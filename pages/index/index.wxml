@@ -51,23 +51,8 @@
   <view class="mode-strip">
     <button class="mode-button {{mode == 'click' ? 'is-active' : ''}}" data-mode="click" bindtap="setMode">基础节拍器</button>
     <button class="mode-button {{mode == 'single' ? 'is-active' : ''}}" data-mode="single" bindtap="setMode">单击练习</button>
-    <button class="mode-button {{mode == 'dotted' ? 'is-active' : ''}}" data-mode="dotted" bindtap="setMode">附点练习</button>
+    <button class="mode-button {{mode == 'rhythm' ? 'is-active' : ''}}" data-mode="rhythm" bindtap="setMode">节奏练习</button>
     <button class="mode-button {{mode == 'continuous' ? 'is-active' : ''}}" data-mode="continuous" bindtap="setMode">连续练习</button>
-  </view>
-
-  <view class="control-grid">
-    <label class="switch-line">
-      <text>声音</text>
-      <switch checked="{{soundEnabled}}" data-key="soundEnabled" bindchange="onSwitchChange" color="#ef6351" />
-    </label>
-    <label class="switch-line">
-      <text>震动</text>
-      <switch checked="{{vibrationEnabled}}" data-key="vibrationEnabled" bindchange="onSwitchChange" color="#ef6351" />
-    </label>
-    <label class="switch-line {{mode == 'click' ? 'is-muted' : ''}}">
-      <text>四分参照</text>
-      <switch checked="{{clickOverlay}}" disabled="{{mode == 'click'}}" data-key="clickOverlay" bindchange="onSwitchChange" color="#ef6351" />
-    </label>
   </view>
 
   <view class="click-panel" wx:if="{{mode == 'click'}}">
@@ -88,11 +73,11 @@
     </view>
   </view>
 
-  <view class="practice-panel" wx:elif="{{mode == 'single' || mode == 'dotted'}}">
+  <view class="practice-panel" wx:elif="{{mode == 'single' || mode == 'rhythm'}}">
     <view class="section-row">
       <view>
-        <text class="section-label">{{mode == 'single' ? '架子鼓练习' : '附点练习'}}</text>
-        <view class="section-title">{{mode == 'single' ? '细分音符单击' : '8分附点与切分'}}</view>
+        <text class="section-label">{{mode == 'single' ? '架子鼓练习' : '节奏练习'}}</text>
+        <view class="section-title">{{mode == 'single' ? '细分音符单击' : '8分组合与切分'}}</view>
       </view>
       <text class="section-tag">{{activePattern.groupLabel}}</text>
     </view>

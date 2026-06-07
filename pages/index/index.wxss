@@ -16,7 +16,6 @@
 .transport-row,
 .section-row,
 .practice-heading,
-.switch-line,
 .grid-shell {
   display: flex;
   align-items: center;
@@ -198,29 +197,6 @@
 .mode-button.is-active {
   color: #fffaf0;
   background: #171619;
-}
-
-.control-grid {
-  margin-top: 22rpx;
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 12rpx;
-}
-
-.switch-line {
-  min-height: 78rpx;
-  justify-content: space-between;
-  padding: 0 20rpx;
-  color: #171619;
-  background: #fffefa;
-  border: 1rpx solid #dfe6d8;
-  border-radius: 8rpx;
-  font-size: 28rpx;
-  font-weight: 800;
-}
-
-.switch-line.is-muted {
-  color: #9aa094;
 }
 
 .click-panel,
@@ -602,9 +578,5 @@
   .page-shell {
     max-width: 720px;
     margin: 0 auto;
-  }
-
-  .control-grid {
-    grid-template-columns: repeat(3, 1fr);
   }
 }
