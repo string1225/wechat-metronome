@@ -35,7 +35,8 @@ Page({
     legend: legend(), viewMode: 'grid',
     loopBars: 8, loopChoices: [4, 8, 16, 0], countIn: true, clickOn: true,
     drumVolume: 80, clickVolume: 55, boost: false, muted: {},
-    sheet: '', focusMode: false, gridScrollLeft: 0, audioStatus: '', audioUnavailable: false,
+    sheet: '', gridScrollLeft: 0, audioStatus: '', audioUnavailable: false,
+    tempoPresets: [60, 90, 105, 120], tapBpm: 0, tapCount: 0,
     basics: [{ id: 'single', name: '单击细分' }, { id: 'rhythm', name: '节奏组合' }, { id: 'continuous', name: '连续换档' }]
   },
   onLoad() {
@@ -47,7 +48,8 @@ Page({
       const selected = { ...this.data.selected };
       Object.keys(selected).forEach((key) => {
         const length = key === 'continuous' ? continuousRoutines.length : libraries[key].length;
-        selected[key] = clamp(saved.selected && saved.selected[key], 0, length - 1, 0);
+        const index = saved.selected && saved.selected[key];
+        selected[key] = Number.isInteger(index) && index >= 0 && index < length ? index : 0;
       });
       this.setData({ selected,
         bpm: clamp(saved.bpm, 40, 220, 90),
@@ -146,13 +148,28 @@ Page({
     this.keepScreen(false);
   },
   changeBpm(event) { this.setTempo(this.data.bpm + Number(event.currentTarget.dataset.step)); },
+  selectTempo(event) { this.setTempo(event.currentTarget.dataset.bpm); },
   tempoInput(event) { this.setTempo(event.detail.value); },
   setTempo(value) { this.setData({ bpm: clamp(value, 40, 220, 60) }); this.save(); },
   useSuggestedTempo() { this.setTempo(this.data.mode === 'continuous' ? this.data.activeRoutine.defaultBpm : this.data.activePattern.defaultBpm); },
+  openTap() { this.resetTap(); this.setData({ sheet: 'tap' }); },
+  resetTap() { this._taps = []; this.setData({ tapBpm: 0, tapCount: 0 }); },
   tapTempo() {
-    const now = Date.now(); this._taps = (this._taps || []).filter((time) => now - time < 4000); this._taps.push(now);
-    if (this._taps.length > 5) this._taps.shift();
-    if (this._taps.length > 1) this.setTempo(60000 * (this._taps.length - 1) / (now - this._taps[0]));
+    const now = Date.now();
+    const taps = this._taps || [];
+    const gap = taps.length ? now - taps[taps.length - 1] : 0;
+    if (taps.length && gap >= 0 && gap < 150) return; // Ignore accidental double taps.
+    if (gap > 2500 || gap < 0) this.resetTap();
+    this._taps = this._taps || [];
+    this._taps.push(now);
+    if (this._taps.length > 8) this._taps.shift();
+    const intervals = this._taps.length - 1;
+    const tapBpm = intervals ? Math.round(60000 * intervals / (now - this._taps[0])) : 0;
+    this.setData({ tapBpm, tapCount: this.data.tapCount + 1 });
+  },
+  applyTap() {
+    if (this.data.tapCount < 2 || this.data.tapBpm < 40 || this.data.tapBpm > 220) return;
+    this.setTempo(this.data.tapBpm); this.closeSheet();
   },
   selectDisplay(event) {
     const display = event.currentTarget.dataset.display;
@@ -161,7 +178,6 @@ Page({
   },
   selectLoop(event) { this.stop(); this.setData({ loopBars: Number(event.currentTarget.dataset.bars) }); this.save(); },
   toggleTrack(event) { const key = event.currentTarget.dataset.key; this.setData({ muted: { ...this.data.muted, [key]: !this.data.muted[key] } }); },
-  toggleFocus() { this.setData({ focusMode: !this.data.focusMode }, () => this.refreshScore()); },
   openSheet(event) { this.setData({ sheet: event.currentTarget.dataset.sheet }); },
   closeSheet() { this.setData({ sheet: '' }); },
   noop() {},

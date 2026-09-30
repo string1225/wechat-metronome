@@ -4,13 +4,12 @@ Component({
   properties: {
     pattern: { type: Object, value: null },
     activeStep: { type: Number, value: -1 },
-    muted: { type: Object, value: {} },
-    large: { type: Boolean, value: false }
+    muted: { type: Object, value: {} }
   },
   data: { scoreHeight: 160 },
   observers: {
-    'pattern, large': function(pattern, large) {
-      const scoreHeight = (pattern && pattern.stepsPerBeat > 4 ? 2 : 1) * (large ? 220 : 160);
+    pattern: function(pattern) {
+      const scoreHeight = (pattern && pattern.stepsPerBeat > 4 ? 2 : 1) * 160;
       this.setData({ scoreHeight }, () => this.refresh());
     },
     'activeStep, muted': function() { this.paint(); }
@@ -38,14 +37,10 @@ Component({
     },
     paint() {
       if (!this._canvas || !this._context) return;
-      const zoom = this.data.large ? 1.3 : 1;
-      this._context.save();
-      this._context.scale(zoom, zoom);
-      drawScore(this._context, this._width / zoom, this.data.scoreHeight / zoom, {
+      drawScore(this._context, this._width, this.data.scoreHeight, {
         pattern: this.data.pattern,
         activeStep: this.data.activeStep, muted: this.data.muted
       });
-      this._context.restore();
     }
   }
 });

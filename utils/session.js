@@ -42,10 +42,9 @@ function eventAt(index, options) {
   const step = position % measure;
   if (options.mode !== 'click' && options.loopBars && bar >= options.loopBars) return { done: true };
   const isBeat = step % division === 0;
-  const follow = pattern && pattern.echo && bar % 2 === 1;
   const sounds = [];
   if ((options.mode === 'click' || options.clickOn) && isBeat) sounds.push(step === 0 ? 'accent' : 'tick');
-  if (options.mode !== 'click' && !follow) {
+  if (options.mode !== 'click') {
     pattern.tracks.forEach((track) => {
       if (track.hits[step] && !options.muted[track.key]) sounds.push(track.sound);
     });
@@ -53,7 +52,7 @@ function eventAt(index, options) {
   return {
     duration: beatSeconds / division, sounds, beat: Math.floor(step / division), step,
     bar: bar + 1, countIn: 0,
-    phase: options.mode === 'click' ? '节拍器' : pattern && pattern.echo ? (follow ? '跟打' : '听示范') : '跟谱练习'
+    phase: options.mode === 'click' ? '节拍器' : '跟谱练习'
   };
 }
 

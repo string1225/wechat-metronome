@@ -34,12 +34,12 @@ test('one-bar count-in does not consume practice bars; finite loop ends at bound
   assert.equal(eventAt(800, { ...options, loopBars: 0 }).done, undefined);
 });
 
-test('listen/play alternates complete bars; muting leaves the original score intact', () => {
-  const pattern = groovePatterns.find((item) => item.echo);
+test('grooves repeat without silent follow bars; muting leaves the original score intact', () => {
+  const pattern = groovePatterns[0];
   const config = { ...options, pattern };
   assert.ok(eventAt(0, config).sounds.includes('kick'));
-  assert.deepEqual(eventAt(8, config).sounds, ['accent']);
-  assert.deepEqual(eventAt(9, config).sounds, []);
+  assert.deepEqual(eventAt(8, config).sounds, ['accent', 'hihat', 'kick']);
+  assert.deepEqual(eventAt(9, config).sounds, ['hihat']);
   assert.ok(eventAt(16, config).sounds.includes('kick'));
   const original = JSON.stringify(pattern);
   assert.deepEqual(eventAt(0, { ...config, muted: { kick: true } }).sounds, ['accent', 'hihat']);
@@ -143,12 +143,13 @@ test('drum engine starts all voices at the exact same audio timestamp and cancel
   assert.deepEqual(starts, [1.25, 1.25, 1.25]); audio.cancel(); assert.equal(stops, 3);
 });
 
-function makePage(saved) {
+function makePage(saved, now = Date.now) {
   let definition;
   const keptAwake = [];
   const sandbox = {
     require: (relative) => require(path.resolve(__dirname, '../pages/index', relative)),
     Page: (value) => { definition = value; },
+    Date: { now },
     wx: { getStorageSync: () => saved, setStorageSync() {}, setKeepScreenOn: ({ keepScreenOn }) => keptAwake.push(keepScreenOn), getWindowInfo: () => ({ windowWidth: 375 }) }
   };
   vm.runInNewContext(fs.readFileSync(path.resolve(__dirname, '../pages/index/index.js'), 'utf8'), sandbox);
@@ -187,6 +188,48 @@ test('legacy settings cannot restore obsolete notation; basics opens as a grid',
   page.selectSection({ currentTarget: { dataset: { section: 'basics' } } });
   assert.equal(page.data.mode, 'single'); assert.equal(page.data.viewMode, 'grid');
   assert.equal(page.data.isPlaying, false);
+});
+
+test('removed listen/play selection falls back to the standard groove', () => {
+  const { page } = makePage({ version: 2, selected: { groove: 4 } });
+  page.selectSection({ currentTarget: { dataset: { section: 'groove' } } });
+  assert.equal(page.data.activePattern.id, 'basic-rock');
+  assert.equal(page.data.library.length, 4);
+});
+
+test('tap dialog measures beats without changing tempo until explicitly applied', () => {
+  let now = 1000;
+  const { page } = makePage(undefined, () => now);
+  page.openTap(); page.applyTap();
+  assert.equal(page.data.sheet, 'tap'); assert.equal(page.data.bpm, 90);
+  for (let i = 0; i < 4; i += 1) { page.tapTempo(); now += 500; }
+  assert.equal(page.data.tapBpm, 120); assert.equal(page.data.tapCount, 4);
+  assert.equal(page.data.bpm, 90);
+  page.applyTap();
+  assert.equal(page.data.bpm, 120); assert.equal(page.data.sheet, '');
+  page.openTap();
+  assert.equal(page.data.tapBpm, 0); assert.equal(page.data.tapCount, 0);
+  page.selectTempo({ currentTarget: { dataset: { bpm: 105 } } });
+  assert.equal(page.data.bpm, 105);
+});
+
+test('tap ignores double taps, resets after a pause, and rejects unsupported speeds', () => {
+  let now = 1000;
+  const { page } = makePage(undefined, () => now);
+  page.openTap(); page.tapTempo();
+  now += 80; page.tapTempo();
+  assert.equal(page.data.tapCount, 1); assert.equal(page.data.tapBpm, 0);
+  now = 2000; page.tapTempo();
+  assert.equal(page.data.tapBpm, 60);
+  now = 5000; page.tapTempo();
+  assert.equal(page.data.tapCount, 1); assert.equal(page.data.tapBpm, 0);
+  now += 200; page.tapTempo(); page.applyTap();
+  assert.equal(page.data.tapBpm, 300); assert.equal(page.data.bpm, 90);
+  assert.equal(page.data.sheet, 'tap');
+  page.resetTap();
+  for (let i = 0; i < 12; i += 1) { now += 600; page.tapTempo(); }
+  assert.equal(page.data.tapBpm, 100); assert.equal(page.data.tapCount, 12);
+  assert.equal(page._taps.length, 8);
 });
 
 test('leaving during async audio setup cannot start playback later or keep the screen awake', async () => {

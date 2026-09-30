@@ -305,14 +305,13 @@ const grooveSpecs = [
   { id: 'basic-rock', name: '标准动次打次', shortName: '标准动次打次', focus: '动、打都与踩镲同时落下；右手始终保持八分音符。', parts: ['hihat', 'snare', 'kick'] },
   { id: 'hat-only', name: '第一步 · 稳住踩镲', shortName: '只打踩镲', focus: '右手每拍两下，数清 1 & 2 & 3 & 4 &。', parts: ['hihat'] },
   { id: 'hat-kick', name: '第二步 · 加入底鼓', shortName: '踩镲＋底鼓', focus: '第1、3拍右手右脚同时落下，脚不要带乱手。', parts: ['hihat', 'kick'] },
-  { id: 'hat-snare', name: '第三步 · 加入军鼓', shortName: '踩镲＋军鼓', focus: '第2、4拍双手同时落下，保持反拍稳定。', parts: ['hihat', 'snare'] },
-  { id: 'rock-echo', name: '你听一小节 · 你打一小节', shortName: '听奏交替', focus: '示范与跟打交替；轮到你时只保留节拍器。', parts: ['hihat', 'snare', 'kick'], echo: true }
+  { id: 'hat-snare', name: '第三步 · 加入军鼓', shortName: '踩镲＋军鼓', focus: '第2、4拍双手同时落下，保持反拍稳定。', parts: ['hihat', 'snare'] }
 ];
 
 const groovePatterns = grooveSpecs.map((spec) => ({
   ...spec,
   description: '4/4 · 八分踩镲 · 基础摇滚律动',
-  groupLabel: spec.echo ? '听奏交替' : '套鼓入门',
+  groupLabel: '套鼓入门',
   defaultBpm: 60,
   beats: 4,
   bars: 1,

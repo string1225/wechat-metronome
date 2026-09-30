@@ -1,43 +1,46 @@
-<view class="page-shell {{focusMode ? 'is-focused' : ''}}">
-  <view class="header" wx:if="{{!focusMode}}">
+<view class="page-shell">
+  <view class="header">
     <view class="brand">
       <image src="/assets/drum-practice-assistant-avatar.jpg" mode="aspectFill"/>
       <text class="brand-title">架子鼓练习助手</text>
     </view>
-    <button class="text-button sound-settings" data-sheet="settings" bindtap="openSheet">声音设置</button>
+    <view class="header-actions">
+      <button class="text-button" data-sheet="settings" bindtap="openSheet">声音设置</button>
+      <button class="text-button" bindtap="openTap">TAP 测速</button>
+    </view>
   </view>
 
-  <view class="tempo-panel" wx:if="{{!focusMode}}">
+  <view class="tempo-panel">
     <view class="tempo-top">
       <view class="tempo-value"><input type="number" value="{{bpm}}" bindblur="tempoInput" bindconfirm="tempoInput" maxlength="3"/><text>BPM</text></view>
-      <view class="tempo-side"><text>4/4</text><button bindtap="tapTempo">TAP 测速</button></view>
+      <view class="beat-lights"><view wx:for="{{beats}}" wx:key="*this" class="beat-light {{currentBeat == index && isPlaying ? 'active' : ''}} {{index == 0 ? 'downbeat' : ''}}">{{item}}</view></view>
+      <text class="time-signature">4/4</text>
     </view>
     <view class="tempo-bottom">
-      <button data-step="-5" bindtap="changeBpm">−5</button><button data-step="-1" bindtap="changeBpm">−1</button>
-      <view class="beat-lights"><view wx:for="{{beats}}" wx:key="*this" class="beat-light {{currentBeat == index && isPlaying ? 'active' : ''}} {{index == 0 ? 'downbeat' : ''}}">{{item}}</view></view>
-      <button data-step="1" bindtap="changeBpm">＋1</button><button data-step="5" bindtap="changeBpm">＋5</button>
+      <view class="tempo-adjust"><button data-step="-5" bindtap="changeBpm">−5</button><button data-step="-1" bindtap="changeBpm">−1</button></view>
+      <view class="tempo-presets"><button wx:for="{{tempoPresets}}" wx:key="*this" class="{{bpm == item ? 'selected' : ''}}" data-bpm="{{item}}" bindtap="selectTempo">{{item}}</button></view>
+      <view class="tempo-adjust"><button data-step="1" bindtap="changeBpm">＋1</button><button data-step="5" bindtap="changeBpm">＋5</button></view>
     </view>
   </view>
 
-  <view class="main-tabs" wx:if="{{!focusMode}}">
+  <view class="main-tabs">
     <button class="{{section == 'click' ? 'selected' : ''}}" data-section="click" bindtap="selectSection">节拍器</button>
     <button class="{{section == 'basics' ? 'selected' : ''}}" data-section="basics" bindtap="selectSection">基本功</button>
     <button class="{{section == 'groove' ? 'selected' : ''}}" data-section="groove" bindtap="selectSection">套鼓律动</button>
   </view>
 
-  <view class="basic-tabs" wx:if="{{section == 'basics' && !focusMode}}">
+  <view class="basic-tabs" wx:if="{{section == 'basics'}}">
     <button wx:for="{{basics}}" wx:key="id" class="{{mode == item.id ? 'selected' : ''}}" data-mode="{{item.id}}" bindtap="selectBasic">{{item.name}}</button>
   </view>
-  <view class="exercise-options {{mode == 'continuous' ? 'routine-options' : ''}}" wx:if="{{mode != 'click' && !focusMode}}">
-    <button wx:for="{{library}}" wx:key="id" class="{{selected[mode] == index ? 'selected' : ''}}" data-index="{{index}}" bindtap="selectExercise">{{item.shortName}}</button>
+  <view class="exercise-options {{mode == 'continuous' ? 'routine-options' : mode == 'rhythm' ? 'rhythm-options' : ''}}" wx:if="{{mode != 'click'}}">
+    <view class="exercise-option" wx:for="{{library}}" wx:key="id"><button class="{{selected[mode] == index ? 'selected' : ''}}" data-index="{{index}}" bindtap="selectExercise">{{item.shortName}}</button></view>
   </view>
-  <view class="focus-title" wx:if="{{focusMode}}">{{activePattern.name}}</view>
 
-  <view class="control-row practice-options" wx:if="{{mode != 'click' && mode != 'continuous' && !focusMode}}">
+  <view class="control-row practice-options" wx:if="{{mode != 'click' && mode != 'continuous'}}">
     <text class="control-label">小节</text>
     <view class="loop-options"><button wx:for="{{loopChoices}}" wx:key="*this" class="{{loopBars == item ? 'selected' : ''}}" data-bars="{{item}}" bindtap="selectLoop">{{item == 0 ? '循环' : item}}</button></view>
   </view>
-  <view class="control-row track-mixer" wx:if="{{mode == 'groove' && !focusMode}}">
+  <view class="control-row track-mixer" wx:if="{{mode == 'groove'}}">
     <text class="control-label">分轨</text>
     <view class="track-buttons">
       <button wx:for="{{activePattern.tracks}}" wx:key="key" class="{{muted[item.key] ? 'is-muted' : ''}}" data-key="{{item.key}}" bindtap="toggleTrack" aria-label="{{item.gridLabel + (muted[item.key] ? '已静音，点击开启' : '已开启，点击静音')}}">
@@ -52,12 +55,9 @@
         <button class="{{viewMode == 'grid' ? 'selected' : ''}}" data-display="grid" bindtap="selectDisplay">节奏网格</button>
         <button class="{{viewMode == 'score' ? 'selected' : ''}}" data-display="score" bindtap="selectDisplay">五线谱</button>
       </view>
-      <view class="score-actions">
-        <button class="text-button" wx:if="{{viewMode == 'score'}}" data-sheet="legend" bindtap="openSheet">图例</button>
-        <button class="text-button" bindtap="toggleFocus">{{focusMode ? '还原' : '放大'}}</button>
-      </view>
+      <button class="legend-button" wx:if="{{viewMode == 'score'}}" data-sheet="legend" bindtap="openSheet">图例</button>
     </view>
-    <drum-score wx:if="{{viewMode == 'score'}}" id="drum-score" pattern="{{activePattern}}" active-step="{{currentStep}}" muted="{{muted}}" large="{{focusMode}}"/>
+    <drum-score wx:if="{{viewMode == 'score'}}" id="drum-score" pattern="{{activePattern}}" active-step="{{currentStep}}" muted="{{muted}}"/>
     <view class="grid-shell" wx:else>
       <view class="track-labels">
         <view class="grid-label">数拍</view><view class="grid-label" wx:for="{{activePattern.tracks}}" wx:key="key">{{item.gridLabel}}</view>
@@ -92,7 +92,19 @@
     <button class="play-button {{isPlaying || isStarting ? 'playing' : ''}}" bindtap="togglePlay"><view class="{{isPlaying || isStarting ? 'stop-icon' : 'play-icon'}}"></view>{{isStarting ? '取消' : isPlaying ? '停止' : '开始'}}</button>
   </view>
 
-  <view class="sheet-backdrop" wx:if="{{sheet}}" bindtap="closeSheet" catchtouchmove="noop">
+  <view class="tap-backdrop" wx:if="{{sheet == 'tap'}}" bindtap="closeSheet" catchtouchmove="noop">
+    <view class="tap-dialog" catchtap="noop">
+      <view class="sheet-heading"><text>TAP 测速</text><button bindtap="closeSheet">关闭</button></view>
+      <view class="tap-instructions">跟随音乐，每一拍点一下 TAP。<text>连续点 4 次以上，测速更稳定。</text></view>
+      <view class="tap-result"><text class="tap-bpm">{{tapBpm || '—'}}</text><text>BPM</text></view>
+      <button class="tap-pad" hover-class="tap-pad-active" hover-stay-time="80" bindtap="tapTempo" aria-label="跟随节拍拍击测速">TAP</button>
+      <view class="tap-status">{{tapCount == 0 ? '点击开始测速' : tapCount == 1 ? '再点一下，计算速度' : '已点 ' + tapCount + ' 次'}}</view>
+      <view class="tap-range" wx:if="{{tapBpm && (tapBpm < 40 || tapBpm > 220)}}">支持 40–220 BPM，请每拍点击一次</view>
+      <view class="tap-actions"><button class="tap-reset" bindtap="resetTap">重新测速</button><button class="tap-apply" disabled="{{tapCount < 2 || tapBpm < 40 || tapBpm > 220}}" bindtap="applyTap">{{tapBpm ? '使用 ' + tapBpm + ' BPM' : '使用测速结果'}}</button></view>
+    </view>
+  </view>
+
+  <view class="sheet-backdrop" wx:if="{{sheet && sheet != 'tap'}}" bindtap="closeSheet" catchtouchmove="noop">
     <view class="sheet" catchtap="noop">
       <view class="sheet-handle"></view>
       <view class="sheet-heading"><text>{{sheet == 'legend' ? '鼓谱图例' : '声音设置'}}</text><button bindtap="closeSheet">完成</button></view>
