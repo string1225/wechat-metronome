@@ -1,0 +1,2 @@
+.score-wrap { width: 100%; overflow: hidden; }
+.score { width: 100%; display: block; }

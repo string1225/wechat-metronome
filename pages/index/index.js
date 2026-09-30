@@ -1,772 +1,175 @@
-const {
-  continuousRoutines,
-  rhythmPatterns,
-  singlePatterns
-} = require('../../utils/patterns');
+const { singlePatterns, rhythmPatterns, continuousRoutines, groovePatterns } = require('../../utils/patterns');
+const { DrumAudio } = require('../../utils/audio');
+const { Transport } = require('../../utils/transport');
+const { eventAt, routineTimeline } = require('../../utils/session');
+const { legend } = require('../../utils/notation');
 
-const APP_NAME = '架子鼓练习助手';
-const MIN_BPM = 40;
-const MAX_BPM = 220;
-const ROUTINE_STAGE_GAP_RPX = 8;
-const ROUTINE_STAGE_WIDTH_RPX = 88;
-
-function clampTempo(value) {
-  const tempo = Number(value);
-
-  if (!Number.isFinite(tempo)) {
-    return 90;
-  }
-
-  return Math.max(MIN_BPM, Math.min(MAX_BPM, Math.round(tempo)));
+const STORAGE_KEY = 'drum-practice-v2';
+const libraries = { groove: groovePatterns, single: singlePatterns, rhythm: rhythmPatterns };
+const categoryNames = { groove: '套鼓律动', single: '单击细分', rhythm: '节奏组合', continuous: '连续换档' };
+function clamp(value, min, max, fallback) {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.max(min, Math.min(max, Math.round(number))) : fallback;
 }
-
-function getCellWidth(totalSteps) {
-  if (totalSteps >= 40) {
-    return 34;
-  }
-
-  if (totalSteps >= 28) {
-    return 38;
-  }
-
-  if (totalSteps >= 20) {
-    return 44;
-  }
-
-  return 54;
-}
-
-function getSlotHand(step) {
-  return step % 2 === 0 ? 'R' : 'L';
-}
-
-function buildPatternView(pattern) {
-  const bars = pattern.bars || 1;
-  const beats = pattern.beats || 4;
-  const totalSteps = bars * beats * pattern.stepsPerBeat;
-  const measureLength = beats * pattern.stepsPerBeat;
-  const cellWidth = getCellWidth(totalSteps);
-  const ruler = Array.from({ length: totalSteps }, (_, index) => {
-    const measureStep = index % measureLength;
-    const beatIndex = Math.floor(measureStep / pattern.stepsPerBeat);
-    const isBeat = measureStep % pattern.stepsPerBeat === 0;
-
-    return {
-      step: index,
-      label: isBeat ? String(beatIndex + 1) : '',
-      isBarStart: measureStep === 0,
-      isBeat
-    };
-  });
-
-  const tracks = pattern.tracks.map((track) => ({
-    ...track,
-    cells: Array.from({ length: totalSteps }, (_, index) => {
-      const measureStep = index % measureLength;
-      const value = track.hits[index] || 0;
-
-      return {
-        step: index,
-        hit: Boolean(value),
-        label: typeof value === 'string' ? value : '',
-        isBarStart: measureStep === 0,
-        isBeat: measureStep % pattern.stepsPerBeat === 0
-      };
-    })
+function patternView(pattern) {
+  const division = pattern.stepsPerBeat;
+  const ruler = Array.from({ length: division * 4 }, (_, step) => ({
+    step, isBeat: step % division === 0,
+    label: step % division === 0 ? String(Math.floor(step / division) + 1) : division === 2 ? '&' : division === 4 ? ['1', 'e', '&', 'a'][step % 4] : '·'
   }));
-
-  return {
-    ...pattern,
-    bars,
-    beats,
-    cellWidth,
-    gridWidth: totalSteps * cellWidth + Math.max(0, totalSteps - 1) * 6,
-    measureLength,
-    ruler,
-    totalSteps,
-    tracks
+  return { ...pattern, ruler, gridWidth: ruler.length * 58,
+    tracks: pattern.tracks.map((track) => ({ ...track,
+      cells: track.hits.map((hit, step) => ({ step, hit: Boolean(hit), isBeat: step % division === 0, label: hit ? (typeof hit === 'string' ? hit : track.key === 'hihat' ? '×' : '●') : '·' }))
+    }))
   };
 }
-
-function buildRoutineRuntime(routine) {
-  let totalBars = 0;
-  let totalSteps = 0;
-  const timeline = [];
-  const stages = routine.stages.map((stage, stageIndex) => {
-    const beats = stage.beats || routine.beats || 4;
-    const bars = stage.bars || 1;
-    const measureLength = beats * stage.stepsPerBeat;
-    const stageSteps = bars * measureLength;
-    const stageView = {
-      ...stage,
-      bars,
-      beats,
-      measureLength,
-      stageIndex,
-      startBar: totalBars + 1,
-      startStep: totalSteps,
-      totalSteps: stageSteps
-    };
-
-    for (let stageStep = 0; stageStep < stageSteps; stageStep += 1) {
-      const measureStep = stageStep % measureLength;
-
-      timeline.push({
-        beat: Math.floor(measureStep / stage.stepsPerBeat),
-        globalBar: totalBars + Math.floor(stageStep / measureLength) + 1,
-        hand: stage.isRest ? '' : getSlotHand(stageStep),
-        isBeatStart: measureStep % stage.stepsPerBeat === 0,
-        isDownbeat: measureStep === 0,
-        measureStep,
-        stageBar: Math.floor(stageStep / measureLength) + 1,
-        stageIndex,
-        stageStep
-      });
-    }
-
-    totalBars += bars;
-    totalSteps += stageSteps;
-
-    return stageView;
-  });
-
-  return {
-    ...routine,
-    stages,
-    timeline,
-    totalBars,
-    totalSteps
-  };
-}
-
-function buildRoutineView(runtime) {
-  const { timeline, ...routineView } = runtime;
-  return routineView;
-}
-
-const singlePatternViews = singlePatterns.map(buildPatternView);
-const rhythmPatternViews = rhythmPatterns.map(buildPatternView);
-const continuousRoutineRuntimeViews = continuousRoutines.map(buildRoutineRuntime);
-const continuousRoutineViews = continuousRoutineRuntimeViews.map(buildRoutineView);
 
 Page({
   data: {
-    appName: APP_NAME,
-    minBpm: MIN_BPM,
-    maxBpm: MAX_BPM,
-    bpm: 90,
-    mode: 'click',
-    isPlaying: false,
-    currentStep: -1,
-    currentBeat: -1,
-    currentBar: 1,
-    currentStageIndex: 0,
-    currentStageName: continuousRoutineViews[0].stages[0].name,
-    currentStageBar: 1,
-    currentStageTotalBars: continuousRoutineViews[0].stages[0].bars,
-    currentStageIsRest: false,
-    routineScrollLeft: 0,
-    singlePatterns: singlePatternViews,
-    rhythmPatterns: rhythmPatternViews,
-    exercisePatterns: singlePatternViews,
-    selectedSingleIndex: 0,
-    selectedRhythmIndex: 0,
-    selectedExerciseIndex: 0,
-    activePattern: singlePatternViews[0],
-    continuousRoutines: continuousRoutineViews,
-    selectedRoutineIndex: 0,
-    activeRoutine: continuousRoutineViews[0],
-    beatDots: Array.from({ length: 4 }, (_, index) => index),
-    soundEnabled: true,
-    vibrationEnabled: false,
-    clickOverlay: true,
-    volumeBoostEnabled: false,
-    audioStatus: '待启动'
+    section: 'groove', mode: 'groove', bpm: 60, isPlaying: false, isStarting: false,
+    currentStep: -1, currentBeat: -1, currentBar: 1, countInNum: 0, phase: '准备好就开始',
+    beats: [1, 2, 3, 4], selected: { groove: 0, single: 0, rhythm: 0, continuous: 0 },
+    activePattern: patternView(groovePatterns[0]), categoryName: '套鼓律动',
+    library: groovePatterns, activeRoutine: continuousRoutines[0],
+    stageIndex: 0, stageBar: 1, stageBars: 4, stageName: '8分', nextStageName: '三连',
+    profile: 'academic', legend: legend('academic'), viewMode: 'score',
+    loopBars: 8, loopChoices: [4, 8, 16, 0], countIn: true, clickOn: true,
+    drumVolume: 80, clickVolume: 55, boost: false, muted: {},
+    sheet: '', focusMode: false, gridScrollLeft: 0, audioStatus: '', audioUnavailable: false,
+    basics: [{ id: 'single', name: '单击细分' }, { id: 'rhythm', name: '节奏组合' }, { id: 'continuous', name: '连续换档' }]
   },
-
-  _absoluteStep: 0,
-  _audioAvailable: null,
-  _audioCtx: null,
-  _fallbackWarned: false,
-  _lookaheadMs: 120,
-  _nextStepAt: 0,
-  _timer: null,
-  _timerIntervalMs: 24,
-
   onLoad() {
-    this.applyExercise('single', 0, true);
-    this.applyRoutine(0, true);
-  },
-
-  onHide() {
-    this.stop(true);
-  },
-
-  onUnload() {
-    this.stop(true);
-    this.destroyAudio();
-  },
-
-  togglePlay() {
-    if (this.data.isPlaying) {
-      this.stop();
-      return;
-    }
-
-    this.start();
-  },
-
-  start() {
-    const audioReady = this.ensureAudio();
-
-    this.resetScheduler(80);
-
-    this.setData({
-      ...this.getResetState(),
-      audioStatus: audioReady ? '音频已就绪' : '使用视觉提示',
-      isPlaying: true
-    });
-
-    if (wx.setKeepScreenOn) {
-      wx.setKeepScreenOn({ keepScreenOn: true });
-    }
-
-    this.scheduleLoop();
-  },
-
-  stop(silent) {
-    if (this._timer) {
-      clearTimeout(this._timer);
-      this._timer = null;
-    }
-
-    this.setData({
-      ...this.getResetState(),
-      isPlaying: false
-    });
-
-    if (!silent && wx.setKeepScreenOn) {
-      wx.setKeepScreenOn({ keepScreenOn: false });
-    }
-  },
-
-  getResetState() {
-    const routine = this.data.activeRoutine || continuousRoutineViews[0];
-    const stage = routine.stages[0] || {};
-
-    return {
-      currentBar: 1,
-      currentBeat: -1,
-      currentStep: -1,
-      currentStageBar: 1,
-      currentStageIndex: 0,
-      currentStageIsRest: Boolean(stage.isRest),
-      currentStageName: stage.name || '',
-      currentStageTotalBars: stage.bars || 1,
-      routineScrollLeft: 0
-    };
-  },
-
-  resetScheduler(delayMs) {
-    this._absoluteStep = 0;
-    this._fallbackWarned = false;
-    this._nextStepAt = Date.now() + (delayMs || 60);
-  },
-
-  scheduleLoop() {
-    if (!this.data.isPlaying) {
-      return;
-    }
-
-    const now = Date.now();
-    let guard = 0;
-
-    while (this._nextStepAt <= now + this._lookaheadMs && guard < 12) {
-      const dueIn = Math.max(0, this._nextStepAt - now);
-      const absoluteStep = this._absoluteStep;
-
-      setTimeout(() => {
-        if (this.data.isPlaying) {
-          this.fireStep(absoluteStep);
-        }
-      }, dueIn);
-
-      this._absoluteStep += 1;
-      this._nextStepAt += this.getStepDuration(absoluteStep);
-      guard += 1;
-    }
-
-    this._timer = setTimeout(() => this.scheduleLoop(), this._timerIntervalMs);
-  },
-
-  isExerciseMode(mode) {
-    const currentMode = mode || this.data.mode;
-    return currentMode === 'single' || currentMode === 'rhythm';
-  },
-
-  getStepDuration(absoluteStep) {
-    const beatDuration = 60000 / this.data.bpm;
-
-    if (this.isExerciseMode()) {
-      return beatDuration / this.data.activePattern.stepsPerBeat;
-    }
-
-    if (this.data.mode === 'continuous') {
-      const runtime = this.getActiveRoutineRuntime();
-      const entry = this.getRoutineStep(absoluteStep || 0, runtime);
-      const stage = runtime.stages[entry.stageIndex] || runtime.stages[0];
-
-      return beatDuration / stage.stepsPerBeat;
-    }
-
-    return beatDuration;
-  },
-
-  getCycleLength() {
-    if (this.isExerciseMode()) {
-      return this.data.activePattern.totalSteps;
-    }
-
-    return 4;
-  },
-
-  getMeasureLength() {
-    if (this.isExerciseMode()) {
-      return this.data.activePattern.measureLength;
-    }
-
-    return 4;
-  },
-
-  fireStep(absoluteStep) {
-    if (this.data.mode === 'continuous') {
-      this.fireRoutineStep(absoluteStep);
-      return;
-    }
-
-    const cycleLength = this.getCycleLength();
-    const measureLength = this.getMeasureLength();
-    const step = absoluteStep % cycleLength;
-    const measureStep = step % measureLength;
-    const beat = this.isExerciseMode()
-      ? Math.floor(measureStep / this.data.activePattern.stepsPerBeat)
-      : measureStep;
-
-    this.setData({
-      currentBar: Math.floor(absoluteStep / measureLength) + 1,
-      currentBeat: beat,
-      currentStep: this.isExerciseMode() ? step : -1
-    });
-
-    this.playStep(step, measureStep, beat);
-  },
-
-  fireRoutineStep(absoluteStep) {
-    const runtime = this.getActiveRoutineRuntime();
-    const entry = this.getRoutineStep(absoluteStep, runtime);
-    const stage = runtime.stages[entry.stageIndex] || runtime.stages[0];
-    const cycleIndex = Math.floor(absoluteStep / runtime.totalSteps);
-    const stageChanged = entry.stageIndex !== this.data.currentStageIndex;
-    const updates = {
-      currentBar: cycleIndex * runtime.totalBars + entry.globalBar,
-      currentBeat: entry.beat,
-      currentStageBar: entry.stageBar,
-      currentStageIndex: entry.stageIndex,
-      currentStageIsRest: Boolean(stage.isRest),
-      currentStageName: stage.name,
-      currentStageTotalBars: stage.bars,
-      currentStep: entry.stageStep
-    };
-
-    if (stageChanged) {
-      updates.routineScrollLeft = this.getRoutineScrollLeft(entry.stageIndex);
-    }
-
-    this.setData(updates);
-
-    this.playRoutineStep(entry, stage);
-  },
-
-  getRpxRatio() {
-    if (typeof wx !== 'undefined' && wx.getSystemInfoSync) {
-      try {
-        const info = wx.getSystemInfoSync();
-
-        if (info && info.windowWidth) {
-          return info.windowWidth / 750;
-        }
-      } catch (error) {
-        // Unit conversion falls back to 1px per rpx outside runtime.
-      }
-    }
-
-    return 1;
-  },
-
-  getRoutineScrollLeft(stageIndex) {
-    const routine = this.data.activeRoutine || continuousRoutineViews[0];
-    const stageCount = routine.stages ? routine.stages.length : 0;
-
-    if (!stageCount) {
-      return 0;
-    }
-
-    const stageWidth = ROUTINE_STAGE_WIDTH_RPX * this.getRpxRatio();
-    const stageGap = ROUTINE_STAGE_GAP_RPX * this.getRpxRatio();
-    const stageSpan = stageWidth + stageGap;
-    const safeIndex = Math.max(0, Math.min(stageCount - 1, stageIndex));
-
-    return Math.round(safeIndex * stageSpan);
-  },
-
-  getActiveRoutineRuntime() {
-    return continuousRoutineRuntimeViews[this.data.selectedRoutineIndex] || continuousRoutineRuntimeViews[0];
-  },
-
-  getRoutineStep(absoluteStep, runtime) {
-    const activeRuntime = runtime || this.getActiveRoutineRuntime();
-    const step = absoluteStep % activeRuntime.totalSteps;
-
-    return activeRuntime.timeline[step] || activeRuntime.timeline[0];
-  },
-
-  playStep(step, measureStep, beat) {
-    const sounds = [];
-    const isDownbeat = measureStep === 0;
-
-    if (this.data.mode === 'click') {
-      sounds.push(isDownbeat ? 'accent' : 'tick');
-    } else {
-      const pattern = this.data.activePattern;
-      const isBeatStart = measureStep % pattern.stepsPerBeat === 0;
-
-      if (this.data.clickOverlay && isBeatStart) {
-        sounds.push(isDownbeat ? 'accent' : 'tick');
-      }
-
-      pattern.tracks.forEach((track) => {
-        if (track.hits[step]) {
-          sounds.push(track.sound || 'rim');
-        }
+    this._audio = new DrumAudio();
+    this._startToken = 0;
+    let saved;
+    try { saved = wx.getStorageSync(STORAGE_KEY); } catch (error) { /* Storage is optional. */ }
+    if (saved && saved.version === 2) {
+      const mode = ['groove', 'single', 'rhythm', 'continuous', 'click'].indexOf(saved.mode) >= 0 ? saved.mode : 'groove';
+      const selected = { ...this.data.selected };
+      Object.keys(selected).forEach((key) => {
+        const length = key === 'continuous' ? continuousRoutines.length : libraries[key].length;
+        selected[key] = clamp(saved.selected && saved.selected[key], 0, length - 1, 0);
+      });
+      this.setData({ mode, section: mode === 'click' || mode === 'groove' ? mode : 'basics', selected,
+        bpm: clamp(saved.bpm, 40, 220, 60), profile: saved.profile === 'popular' ? 'popular' : 'academic',
+        loopBars: [0, 4, 8, 16].indexOf(saved.loopBars) >= 0 ? saved.loopBars : 8,
+        countIn: saved.countIn !== false, clickOn: saved.clickOn !== false,
+        drumVolume: clamp(saved.drumVolume, 0, 100, 80), clickVolume: clamp(saved.clickVolume, 0, 100, 55),
+        boost: Boolean(saved.boost), viewMode: saved.viewMode === 'grid' ? 'grid' : 'score'
       });
     }
-
-    if (this.data.soundEnabled) {
-      this.playSounds(sounds);
-    }
-
-    if (this.data.vibrationEnabled && (isDownbeat || sounds.length)) {
-      this.vibrate(isDownbeat || beat === 0);
-    }
+    this.applyMode();
   },
-
-  playRoutineStep(entry, stage) {
-    const sounds = [];
-
-    if (this.data.clickOverlay && entry.isBeatStart) {
-      sounds.push(entry.isDownbeat ? 'accent' : 'tick');
-    }
-
-    if (!stage.isRest) {
-      sounds.push('rim');
-    }
-
-    if (this.data.soundEnabled) {
-      this.playSounds(sounds);
-    }
-
-    if (this.data.vibrationEnabled && (entry.isDownbeat || sounds.length)) {
-      this.vibrate(entry.isDownbeat || entry.beat === 0);
-    }
+  onHide() { this.stop(); },
+  onUnload() { this.stop(); this._audio.close(); },
+  onResize() { this.refreshScore(); },
+  refreshScore() { const component = this.selectComponent('#drum-score'); if (component) component.refresh(); },
+  save() {
+    const d = this.data;
+    try { wx.setStorageSync(STORAGE_KEY, {
+      version: 2, mode: d.mode, selected: d.selected, bpm: d.bpm, profile: d.profile,
+      loopBars: d.loopBars, countIn: d.countIn, clickOn: d.clickOn, drumVolume: d.drumVolume,
+      clickVolume: d.clickVolume, boost: d.boost, viewMode: d.viewMode
+    }); } catch (error) { /* Practice remains usable without storage. */ }
   },
-
-  playSounds(sounds) {
-    if (!sounds.length) {
-      return;
-    }
-
-    if (!this.ensureAudio()) {
-      if (!this._fallbackWarned) {
-        this._fallbackWarned = true;
-        this.setData({ audioStatus: '当前环境不支持合成音频' });
-      }
-
-      return;
-    }
-
-    sounds.slice(0, 4).forEach((sound, index) => {
-      this.playTone(sound, index * 0.006);
+  applyMode() {
+    const mode = this.data.mode;
+    const routine = continuousRoutines[this.data.selected.continuous];
+    const list = libraries[mode] || groovePatterns;
+    const index = this.data.selected[mode] || 0;
+    this._runtime = routineTimeline(routine);
+    this.setData({ activePattern: patternView(list[index] || list[0]), activeRoutine: routine,
+      library: mode === 'continuous' ? continuousRoutines : list, categoryName: categoryNames[mode] || '基础节拍器',
+      stageIndex: 0, stageBar: 1, stageBars: routine.stages[0].bars,
+      stageName: routine.stages[0].name, nextStageName: routine.stages[1].name,
+      legend: legend(this.data.profile), muted: {}, gridScrollLeft: 0
     });
+    this.save();
   },
-
-  ensureAudio() {
-    if (this._audioAvailable === false) {
-      return false;
-    }
-
-    if (!this._audioCtx) {
-      try {
-        if (wx.setInnerAudioOption) {
-          wx.setInnerAudioOption({
-            mixWithOther: true,
-            obeyMuteSwitch: false
-          });
-        }
-
-        if (wx.createWebAudioContext) {
-          this._audioCtx = wx.createWebAudioContext();
-        }
-      } catch (error) {
-        this._audioCtx = null;
-      }
-    }
-
-    const context = this._audioCtx;
-
-    if (!context || !context.createOscillator || !context.createGain || !context.destination) {
-      this._audioAvailable = false;
-      return false;
-    }
-
-    try {
-      if (context.state === 'suspended' && context.resume) {
-        context.resume();
-      }
-    } catch (error) {
-      // Older base libraries can expose state without resume.
-    }
-
-    this._audioAvailable = true;
-    return true;
+  selectSection(event) {
+    const section = event.currentTarget.dataset.section;
+    if (section === this.data.section) return;
+    this.stop(); this.setData({ section, mode: section === 'basics' ? 'single' : section }); this.applyMode();
   },
-
-  destroyAudio() {
-    if (this._audioCtx && this._audioCtx.close) {
-      try {
-        this._audioCtx.close();
-      } catch (error) {
-        // Closing is best-effort on older base libraries.
-      }
-    }
-
-    this._audioCtx = null;
-    this._audioAvailable = null;
-  },
-
-  playTone(kind, delay) {
-    const context = this._audioCtx;
-    const startAt = (context.currentTime || 0) + delay;
-
-    if (kind === 'accent') {
-      this.playOscillator({
-        duration: 0.055,
-        from: 1680,
-        startAt,
-        type: 'square',
-        volume: 0.13
-      });
-      return;
-    }
-
-    if (kind === 'tick') {
-      this.playOscillator({
-        duration: 0.04,
-        from: 1120,
-        startAt,
-        type: 'square',
-        volume: 0.09
-      });
-      return;
-    }
-
-    this.playOscillator({
-      duration: 0.036,
-      from: 820,
-      startAt,
-      type: 'square',
-      volume: 0.055
-    });
-  },
-
-  playOscillator(options) {
-    const context = this._audioCtx;
-
-    try {
-      const oscillator = context.createOscillator();
-      const gain = context.createGain();
-      const startAt = options.startAt;
-      const duration = options.duration;
-      const volume = this.data.volumeBoostEnabled ? options.volume * 5 : options.volume;
-
-      oscillator.type = options.type;
-      this.setParam(oscillator.frequency, options.from, startAt);
-
-      if (options.to) {
-        this.rampParam(oscillator.frequency, options.to, startAt + duration);
-      }
-
-      this.setParam(gain.gain, 0.0001, startAt);
-      this.rampParam(gain.gain, volume, startAt + 0.003);
-      this.rampParam(gain.gain, 0.0001, startAt + duration);
-
-      oscillator.connect(gain);
-      gain.connect(context.destination);
-      oscillator.start(startAt);
-      oscillator.stop(startAt + duration + 0.02);
-    } catch (error) {
-      this._audioAvailable = false;
-    }
-  },
-
-  setParam(param, value, time) {
-    if (param && param.setValueAtTime) {
-      param.setValueAtTime(value, time);
-      return;
-    }
-
-    if (param) {
-      param.value = value;
-    }
-  },
-
-  rampParam(param, value, time) {
-    if (param && param.exponentialRampToValueAtTime && value > 0) {
-      param.exponentialRampToValueAtTime(value, time);
-      return;
-    }
-
-    this.setParam(param, value, time);
-  },
-
-  vibrate(isDownbeat) {
-    if (!wx.vibrateShort) {
-      return;
-    }
-
-    wx.vibrateShort({
-      type: isDownbeat ? 'heavy' : 'light'
-    });
-  },
-
-  changeBpm(event) {
-    const step = Number(event.currentTarget.dataset.step || 1);
-    this.setTempo(this.data.bpm + step);
-  },
-
-  onTempoSlide(event) {
-    this.setTempo(event.detail.value);
-  },
-
-  setTempo(value) {
-    this.setData({
-      bpm: clampTempo(value)
-    });
-  },
-
-  setMode(event) {
-    const mode = event.currentTarget.dataset.mode;
-
-    if (!mode || mode === this.data.mode) {
-      return;
-    }
-
-    this.setData({ mode });
-
-    if (mode === 'single') {
-      this.applyExercise('single', this.data.selectedSingleIndex, true);
-      return;
-    }
-
-    if (mode === 'rhythm') {
-      this.applyExercise('rhythm', this.data.selectedRhythmIndex, true);
-      return;
-    }
-
-    if (mode === 'continuous') {
-      this.applyRoutine(this.data.selectedRoutineIndex, true);
-      return;
-    }
-
-    this.setData({
-      ...this.getResetState(),
-      beatDots: Array.from({ length: 4 }, (_, beatIndex) => beatIndex)
-    });
-
-    if (this.data.isPlaying) {
-      this.resetScheduler(60);
-    }
-  },
-
+  selectBasic(event) { this.stop(); this.setData({ mode: event.currentTarget.dataset.mode }); this.applyMode(); },
   selectExercise(event) {
-    const group = event.currentTarget.dataset.group || this.data.mode;
     const index = Number(event.currentTarget.dataset.index);
-
-    this.applyExercise(group, index, true);
+    if (!this.data.library[index]) return;
+    this.stop(); this.setData({ selected: { ...this.data.selected, [this.data.mode]: index }, sheet: '' }); this.applyMode();
   },
-
-  applyExercise(group, index, keepTempo) {
-    const isRhythm = group === 'rhythm';
-    const patternList = isRhythm ? rhythmPatternViews : singlePatternViews;
-    const resolvedIndex = patternList[index] ? index : 0;
-    const pattern = patternList[resolvedIndex];
-    const updates = {
-      activePattern: pattern,
-      beatDots: Array.from({ length: pattern.beats }, (_, beatIndex) => beatIndex),
-      bpm: keepTempo ? this.data.bpm : pattern.defaultBpm,
-      currentBar: 1,
-      currentBeat: -1,
-      currentStep: -1,
-      exercisePatterns: patternList,
-      selectedExerciseIndex: resolvedIndex
-    };
-
-    if (isRhythm) {
-      updates.selectedRhythmIndex = resolvedIndex;
-    } else {
-      updates.selectedSingleIndex = resolvedIndex;
+  async togglePlay() {
+    if (this.data.isPlaying || this.data.isStarting) { this.stop(); return; }
+    const token = ++this._startToken;
+    this.setData({ isStarting: true, phase: '正在准备声音' });
+    const ready = await this._audio.prepare();
+    if (token !== this._startToken) return;
+    this.setData({ isStarting: false, isPlaying: true, currentBar: 1, audioUnavailable: !ready, audioStatus: ready ? '' : '此环境暂不支持声音，当前仅显示拍点。请用真机预览。' });
+    this._transport = new Transport({
+      clock: () => ready ? this._audio.context.currentTime : Date.now() / 1000,
+      eventAt: (index) => eventAt(index, { ...this.data, pattern: this.data.activePattern, runtime: this._runtime }),
+      play: (event, at) => {
+        if (!ready) return;
+        try {
+          this._audio.play(event.sounds, at, { clickVolume: this.data.clickVolume / 100, drumVolume: this.data.drumVolume / 100, boost: this.data.boost });
+        } catch (error) {
+          this.setData({ audioUnavailable: true, audioStatus: '声音播放异常，请停止后重新开始。' });
+        }
+      },
+      visual: (event) => this.showEvent(event), cancelAudio: () => this._audio.cancel(),
+      finish: () => {
+        this.setData({ isPlaying: false, currentStep: -1, currentBeat: -1, phase: '完成 ' + this.data.loopBars + ' 小节，再来一轮？' });
+        this.keepScreen(false);
+      }
+    });
+    this.keepScreen(true); this._transport.start();
+  },
+  showEvent(event) {
+    const updates = { currentStep: event.step, currentBeat: event.beat, currentBar: event.bar || 1, countInNum: event.countIn, phase: event.phase };
+    if (event.stageIndex !== undefined) {
+      const stages = this.data.activeRoutine.stages;
+      updates.stageIndex = event.stageIndex; updates.stageBar = event.stageBar;
+      updates.stageBars = event.stageBars; updates.stageName = event.stageName;
+      updates.nextStageName = stages[(event.stageIndex + 1) % stages.length].name;
     }
-
+    if (event.step >= 0 && this.data.viewMode === 'grid') {
+      const info = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync();
+      updates.gridScrollLeft = Math.max(0, (event.step - 3) * 58 * info.windowWidth / 750);
+    }
     this.setData(updates);
-
-    if (this.data.isPlaying) {
-      this.resetScheduler(60);
-    }
   },
-
-  selectRoutine(event) {
-    this.applyRoutine(Number(event.currentTarget.dataset.index), true);
+  keepScreen(keepScreenOn) { if (wx.setKeepScreenOn) wx.setKeepScreenOn({ keepScreenOn }); },
+  stop() {
+    this._startToken += 1;
+    if (this._transport) this._transport.stop();
+    this.setData({ isStarting: false, isPlaying: false, currentStep: -1, currentBeat: -1, countInNum: 0, phase: '准备好就开始' });
+    this.keepScreen(false);
   },
-
-  applyRoutine(index, keepTempo) {
-    const resolvedIndex = continuousRoutineViews[index] ? index : 0;
-    const routine = continuousRoutineViews[resolvedIndex];
-    const firstStage = routine.stages[0] || {};
-
-    this.setData({
-      activeRoutine: routine,
-      beatDots: Array.from({ length: routine.beats || 4 }, (_, beatIndex) => beatIndex),
-      bpm: keepTempo ? this.data.bpm : routine.defaultBpm,
-      currentBar: 1,
-      currentBeat: -1,
-      currentStageBar: 1,
-      currentStageIndex: 0,
-      currentStageIsRest: Boolean(firstStage.isRest),
-      currentStageName: firstStage.name || '',
-      currentStageTotalBars: firstStage.bars || 1,
-      currentStep: -1,
-      routineScrollLeft: 0,
-      selectedRoutineIndex: resolvedIndex
-    });
-
-    if (this.data.isPlaying) {
-      this.resetScheduler(60);
-    }
+  changeBpm(event) { this.setTempo(this.data.bpm + Number(event.currentTarget.dataset.step)); },
+  tempoInput(event) { this.setTempo(event.detail.value); },
+  setTempo(value) { this.setData({ bpm: clamp(value, 40, 220, 60) }); this.save(); },
+  useSuggestedTempo() { this.setTempo(this.data.mode === 'continuous' ? this.data.activeRoutine.defaultBpm : this.data.activePattern.defaultBpm); },
+  tapTempo() {
+    const now = Date.now(); this._taps = (this._taps || []).filter((time) => now - time < 4000); this._taps.push(now);
+    if (this._taps.length > 5) this._taps.shift();
+    if (this._taps.length > 1) this.setTempo(60000 * (this._taps.length - 1) / (now - this._taps[0]));
   },
-
-  onVolumeBoostChange(event) {
-    this.setData({
-      volumeBoostEnabled: event.detail.value
-    });
+  selectProfile(event) { const profile = event.currentTarget.dataset.profile; this.setData({ profile, legend: legend(profile) }); this.save(); },
+  selectView(event) { this.setData({ viewMode: event.currentTarget.dataset.view }); this.save(); },
+  selectLoop(event) { this.stop(); this.setData({ loopBars: Number(event.currentTarget.dataset.bars) }); this.save(); },
+  toggleTrack(event) { const key = event.currentTarget.dataset.key; this.setData({ muted: { ...this.data.muted, [key]: !this.data.muted[key] } }); },
+  toggleFocus() { this.setData({ focusMode: !this.data.focusMode }, () => this.refreshScore()); },
+  openSheet(event) { this.setData({ sheet: event.currentTarget.dataset.sheet }); },
+  closeSheet() { this.setData({ sheet: '' }); },
+  noop() {},
+  changeSetting(event) {
+    const key = event.currentTarget.dataset.key;
+    if (['countIn', 'clickOn', 'boost'].indexOf(key) < 0) return;
+    if (key === 'countIn') this.stop(); this.setData({ [key]: event.detail.value }); this.save();
   },
-
+  changeVolume(event) {
+    const key = event.currentTarget.dataset.key;
+    if (key !== 'drumVolume' && key !== 'clickVolume') return;
+    this.setData({ [key]: clamp(event.detail.value, 0, 100, 70) }); this.save();
+  },
+  onShareAppMessage() { return { title: '一起练鼓 · 从动次打次开始', path: '/pages/index/index' }; }
 });

@@ -5,3 +5,5 @@ dist/
 project.private.config.json
 skills-lock.json
 *.log
+*.key
+*.pem

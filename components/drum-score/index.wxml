@@ -1,0 +1,3 @@
+<view class="score-wrap" style="height: {{scoreHeight}}px;">
+  <canvas class="score" type="2d" id="score" style="height: {{scoreHeight}}px;"></canvas>
+</view>

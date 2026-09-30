@@ -1,3 +1,5 @@
 {
-  "navigationBarTitleText": "架子鼓练习助手"
+  "navigationBarTitleText": "架子鼓练习助手",
+  "pageOrientation": "auto",
+  "usingComponents": { "drum-score": "/components/drum-score/index" }
 }

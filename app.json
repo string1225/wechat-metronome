@@ -4,9 +4,9 @@
   ],
   "window": {
     "navigationBarTitleText": "架子鼓练习助手",
-    "navigationBarBackgroundColor": "#101113",
-    "navigationBarTextStyle": "white",
-    "backgroundColor": "#f5f2ea"
+    "navigationBarBackgroundColor": "#f4f6ed",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#f4f6ed"
   },
   "lazyCodeLoading": "requiredComponents",
   "style": "v2",

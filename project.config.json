@@ -33,6 +33,12 @@
   "simulatorPluginLibVersion": {},
   "packOptions": {
     "ignore": [
+      { "type": "folder", "value": "dist" },
+      { "type": "folder", "value": "tests" },
+      { "type": "folder", "value": "node_modules" },
+      { "type": "file", "value": "AGENTS.md" },
+      { "type": "suffix", "value": ".key" },
+      { "type": "suffix", "value": ".pem" },
       {
         "type": "folder",
         "value": ".agents"

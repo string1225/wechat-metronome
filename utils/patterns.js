@@ -5,7 +5,7 @@ const subdivisionSpecs = [
     id: 'eighth-notes',
     name: '8分音符单击',
     shortName: '8分',
-    groupLabel: '2连',
+    groupLabel: '每拍2下',
     stepsPerBeat: 2,
     defaultBpm: 96,
     countPattern: '1 & 2 & 3 & 4 &',
@@ -27,7 +27,7 @@ const subdivisionSpecs = [
     id: 'sixteenth-notes',
     name: '16分音符单击',
     shortName: '16分',
-    groupLabel: '4连',
+    groupLabel: '每拍4下',
     stepsPerBeat: 4,
     defaultBpm: 72,
     countPattern: '1 e & a',
@@ -71,10 +71,10 @@ const subdivisionSpecs = [
     id: 'thirty-second-notes',
     name: '32分音符单击',
     shortName: '32分',
-    groupLabel: '8连',
+    groupLabel: '每拍8下',
     stepsPerBeat: 8,
     defaultBpm: 44,
-    countPattern: '1 e & a 2 e & a',
+    countPattern: '每拍均分8下，按四分音符数拍',
     description: '每拍8下，相当于一拍内放进两个16分组合。',
     focus: '音量宁可小一点，也不要让后半拍糊掉。'
   }
@@ -170,7 +170,7 @@ function makeRhythmExercise(options) {
 }
 
 function makeRoutine(options) {
-  const order = subdivisionSpecs.concat(subdivisionSpecs.slice().reverse());
+  const order = subdivisionSpecs.concat(subdivisionSpecs.slice(0, -1).reverse());
   const stages = [];
 
   order.forEach((spec, index) => {
@@ -295,8 +295,36 @@ const continuousRoutines = [
   })
 ];
 
+const grooveTracks = [
+  { key: 'hihat', label: '闭合踩镲', short: '镲', sound: 'hihat', limb: '右手', hits: [1, 1, 1, 1, 1, 1, 1, 1] },
+  { key: 'snare', label: '军鼓', short: '打', sound: 'snare', limb: '左手', hits: [0, 0, 1, 0, 0, 0, 1, 0] },
+  { key: 'kick', label: '底鼓', short: '动', sound: 'kick', limb: '右脚', hits: [1, 0, 0, 0, 1, 0, 0, 0] }
+];
+
+const grooveSpecs = [
+  { id: 'basic-rock', name: '标准动次打次', shortName: '完整合奏', focus: '动、打都与踩镲同时落下；右手始终保持八分音符。', parts: ['hihat', 'snare', 'kick'] },
+  { id: 'hat-only', name: '第一步 · 稳住踩镲', shortName: '只打踩镲', focus: '右手每拍两下，数清 1 & 2 & 3 & 4 &。', parts: ['hihat'] },
+  { id: 'hat-kick', name: '第二步 · 加入底鼓', shortName: '踩镲＋底鼓', focus: '第1、3拍右手右脚同时落下，脚不要带乱手。', parts: ['hihat', 'kick'] },
+  { id: 'hat-snare', name: '第三步 · 加入军鼓', shortName: '踩镲＋军鼓', focus: '第2、4拍双手同时落下，保持反拍稳定。', parts: ['hihat', 'snare'] },
+  { id: 'rock-echo', name: '你听一小节 · 你打一小节', shortName: '听一句，打一遍', focus: '示范与跟打交替；轮到你时只保留节拍器。', parts: ['hihat', 'snare', 'kick'], echo: true }
+];
+
+const groovePatterns = grooveSpecs.map((spec) => ({
+  ...spec,
+  description: '4/4 · 八分踩镲 · 基础摇滚律动',
+  groupLabel: spec.echo ? '听奏交替' : '套鼓入门',
+  defaultBpm: 60,
+  beats: 4,
+  bars: 1,
+  stepsPerBeat: 2,
+  countPattern: '1 & 2 & 3 & 4 &',
+  syllables: spec.parts.length === 3 ? ['动', '次', '打', '次', '动', '次', '打', '次'] : [],
+  tracks: grooveTracks.filter((track) => spec.parts.indexOf(track.key) >= 0)
+}));
+
 module.exports = {
   continuousRoutines,
+  groovePatterns,
   rhythmPatterns,
   singlePatterns
 };
