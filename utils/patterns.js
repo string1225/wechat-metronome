@@ -321,8 +321,22 @@ const groovePatterns = grooveSpecs.map((spec) => ({
   tracks: grooveTracks.filter((track) => spec.parts.indexOf(track.key) >= 0)
 }));
 
+// A routine stage lasts several bars; the displayed pattern is one repeating bar.
+function routineStagePattern(stage) {
+  const steps = BEATS * stage.stepsPerBeat;
+  return {
+    id: stage.id, name: stage.name, beats: BEATS, bars: 1,
+    stepsPerBeat: stage.stepsPerBeat, isRest: stage.isRest,
+    tracks: [{
+      key: 'single-stroke', label: '单击', short: stage.isRest ? '休止' : 'R/L', sound: 'rim',
+      hits: stage.isRest ? Array.from({ length: steps }, () => 0) : alternatingHands(steps)
+    }]
+  };
+}
+
 module.exports = {
   continuousRoutines,
+  routineStagePattern,
   groovePatterns,
   rhythmPatterns,
   singlePatterns

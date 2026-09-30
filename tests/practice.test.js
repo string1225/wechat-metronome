@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { groovePatterns, singlePatterns, rhythmPatterns, continuousRoutines } = require('../utils/patterns');
+const { groovePatterns, singlePatterns, rhythmPatterns, continuousRoutines, routineStagePattern } = require('../utils/patterns');
 const { eventAt, routineTimeline } = require('../utils/session');
 const { rhythmNotes, positions, legend, drawScore } = require('../utils/notation');
 const { Transport } = require('../utils/transport');
@@ -76,7 +76,7 @@ test('basic notation accounts for all note durations and tuplets within every be
 
 test('all scores draw without invalid coordinates on narrow screens', () => {
   const ctx = new Proxy({}, { get(target, key) { return target[key] || ((...args) => { args.filter((arg) => typeof arg === 'number').forEach((arg) => assert.ok(Number.isFinite(arg), key)); }); } });
-  singlePatterns.concat(rhythmPatterns, groovePatterns).forEach((pattern) => {
+  singlePatterns.concat(rhythmPatterns, groovePatterns, continuousRoutines.flatMap((routine) => routine.stages.map(routineStagePattern))).forEach((pattern) => {
     drawScore(ctx, 260, pattern.stepsPerBeat > 4 ? 320 : 160, { pattern, activeStep: 0, muted: {} });
   });
 });
@@ -143,6 +143,31 @@ test('drum engine starts all voices at the exact same audio timestamp and cancel
   assert.deepEqual(starts, [1.25, 1.25, 1.25]); audio.cancel(); assert.equal(stops, 3);
 });
 
+test('kick PCM retains an audible attack above the sub-bass range without clipping', () => {
+  for (const rate of [44100, 48000]) {
+    const audio = new DrumAudio();
+    audio.context = { sampleRate: rate, createBuffer(channels, length) {
+      assert.equal(channels, 1);
+      const samples = new Float32Array(length);
+      return { getChannelData: () => samples };
+    } };
+    const kick = audio.makeBuffer('kick').getChannelData(0);
+    assert.ok(kick.every((sample) => Number.isFinite(sample) && Math.abs(sample) < 1));
+    // Attenuate low bass twice at 250 Hz: a regression check for a sub-only kick,
+    // not a prediction of any particular phone speaker's frequency response.
+    let upper = Float32Array.from(kick);
+    const alpha = 1 / (1 + 2 * Math.PI * 250 / rate);
+    for (let pass = 0; pass < 2; pass += 1) {
+      let previous = 0; let output = 0;
+      upper = upper.map((sample) => { output = alpha * (output + sample - previous); previous = sample; return output; });
+    }
+    const rms = Math.sqrt(upper.reduce((sum, sample) => sum + sample * sample, 0) / upper.length);
+    assert.ok(rms > 0.04, 'kick must not disappear when low bass is attenuated');
+    const tail = kick.slice(-Math.floor(rate * 0.02));
+    assert.ok(tail.every((sample) => Math.abs(sample) < 0.01), 'kick tail should decay smoothly');
+  }
+});
+
 function makePage(saved, now = Date.now) {
   let definition;
   const keptAwake = [];
@@ -195,6 +220,51 @@ test('removed listen/play selection falls back to the standard groove', () => {
   page.selectSection({ currentTarget: { dataset: { section: 'groove' } } });
   assert.equal(page.data.activePattern.id, 'basic-rock');
   assert.equal(page.data.library.length, 4);
+});
+
+test('continuous grid and score follow every stage, rest and loop, then reset on stop', () => {
+  continuousRoutines.forEach((routine, routineIndex) => {
+    const { page } = makePage({ version: 2, selected: { continuous: routineIndex } });
+    page.selectSection({ currentTarget: { dataset: { section: 'basics' } } });
+    page.selectBasic({ currentTarget: { dataset: { mode: 'continuous' } } });
+    assert.equal(page.data.activePattern.id, routine.stages[0].id);
+    assert.equal(page.data.activePattern.stepsPerBeat, 2);
+    page.selectDisplay({ currentTarget: { dataset: { display: 'score' } } });
+    const config = { ...options, mode: 'continuous', runtime: page._runtime };
+    for (let index = 0; index <= page._runtime.timeline.length; index += 1) {
+      const event = eventAt(index, config);
+      page.showEvent(event);
+      const stage = routine.stages[event.stageIndex];
+      const pattern = page.data.activePattern;
+      assert.equal(pattern.id, stage.id);
+      assert.equal(pattern.stepsPerBeat, stage.stepsPerBeat);
+      assert.equal(pattern.tracks[0].hits.length, stage.stepsPerBeat * 4);
+      assert.equal(pattern.isRest, stage.isRest);
+      assert.equal(Boolean(pattern.tracks[0].hits[event.step]), event.sounds.includes('rim'));
+      assert.equal(page.data.currentStep, event.step);
+    }
+    const lastIndex = page._runtime.timeline.length - 1;
+    page.selectDisplay({ currentTarget: { dataset: { display: 'grid' } } });
+    page.showEvent(eventAt(lastIndex, config));
+    assert.ok(page.data.gridScrollLeft > 0);
+    page.stop();
+    assert.equal(page.data.stageIndex, 0); assert.equal(page.data.currentStep, -1);
+    assert.equal(page.data.activePattern.id, routine.stages[0].id);
+    assert.equal(page.data.gridScrollLeft, 0);
+  });
+});
+
+test('rest stage score draws a whole-bar rest and no hit noteheads', () => {
+  const stage = continuousRoutines[1].stages.find((item) => item.isRest);
+  const pattern = routineStagePattern(stage);
+  assert.equal(rhythmNotes(pattern).length, 0);
+  const rectangles = [];
+  let noteheads = 0;
+  const ctx = new Proxy({fillRect: (...args) => rectangles.push(args), arc: () => { noteheads += 1; }}, {get: (target, key) => target[key] || (() => {})});
+  drawScore(ctx, 300, 160, { pattern, activeStep: -1 });
+  assert.equal(noteheads, 0);
+  assert.equal(rectangles.length, 1);
+  assert.equal(rectangles[0][1], 53); // Fourth line, counted from the bottom.
 });
 
 test('tap dialog measures beats without changing tempo until explicitly applied', () => {

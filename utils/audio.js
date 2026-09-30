@@ -37,8 +37,14 @@ class DrumAudio {
       const noise = Math.random() * 2 - 1;
       let value;
       if (kind === 'kick') {
-        phase += 2 * Math.PI * (48 + 100 * Math.exp(-t * 45)) / rate;
-        value = Math.sin(phase) * Math.exp(-t * 19) * 0.72;
+        phase += 2 * Math.PI * (65 + 105 * Math.exp(-t * 45)) / rate;
+        // A sub-only sine can disappear on phone speakers. Add audible body
+        // harmonics and a short beater transient while retaining the low thump.
+        const body = (Math.sin(phase) * 0.5 + Math.sin(phase * 2) * 0.32 +
+          Math.sin(phase * 3) * 0.24 + Math.sin(phase * 5) * 0.16) * Math.exp(-t * 22);
+        const beater = Math.sin(2 * Math.PI * 1250 * t) * Math.exp(-t * 130) * 0.24 +
+          (noise - previousNoise) * Math.exp(-t * 220) * 0.07;
+        value = body + beater;
       } else if (kind === 'snare') {
         value = (noise * 0.5 + Math.sin(2 * Math.PI * 185 * t) * 0.22) * Math.exp(-t * 32);
       } else if (kind === 'hihat') {

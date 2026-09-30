@@ -49,7 +49,15 @@
     </view>
   </view>
 
-  <view wx:if="{{mode == 'groove' || mode == 'single' || mode == 'rhythm'}}" class="score-card">
+  <view class="routine-card" wx:if="{{mode == 'continuous'}}">
+    <view class="routine-status">
+      <view class="stage-readout">{{stageName}}<text>{{stageBar}} / {{stageBars}} 小节</text></view>
+      <view class="next-stage">下一段 <text>{{nextStageName}}</text></view>
+    </view>
+    <view class="stage-progress"><view wx:for="{{activeRoutine.stages}}" wx:key="id" class="{{stageIndex == index ? 'active' : ''}} {{stageIndex > index ? 'done' : ''}}"></view></view>
+  </view>
+
+  <view wx:if="{{mode != 'click'}}" class="score-card">
     <view class="score-toolbar">
       <view class="display-tabs">
         <button class="{{viewMode == 'grid' ? 'selected' : ''}}" data-display="grid" bindtap="selectDisplay">节奏网格</button>
@@ -73,11 +81,6 @@
     </view>
   </view>
 
-  <view class="routine-card" wx:if="{{mode == 'continuous'}}">
-    <view class="stage-readout">{{stageName}}<text>{{stageBar}} / {{stageBars}} 小节</text></view>
-    <view class="stage-progress"><view wx:for="{{activeRoutine.stages}}" wx:key="id" class="{{stageIndex == index ? 'active' : ''}} {{stageIndex > index ? 'done' : ''}}"></view></view>
-    <view class="next-stage">下一段 <text>{{nextStageName}}</text></view>
-  </view>
   <view class="click-card" wx:if="{{mode == 'click'}}">
     <view class="large-beats"><view wx:for="{{beats}}" wx:key="*this" class="{{currentBeat == index && isPlaying ? 'active' : ''}}">{{item}}</view></view>
     <text class="hint">四分音符 · 第一拍重音</text>

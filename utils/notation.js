@@ -143,7 +143,11 @@ function drawScore(ctx, width, height, options) {
         }
       }
     }
-    if (!groove) {
+    if (pattern.isRest) {
+      // Whole-bar rest hangs below the fourth staff line.
+      ctx.fillStyle = ink;
+      ctx.fillRect(left + usable / 2 - 6, top + 10, 12, 4);
+    } else if (!groove) {
       const notes = rhythmNotes(pattern).filter((note) => note.step >= firstStep && note.step < firstStep + beatsPerRow * division);
       const beamY = top - 12;
       const y = yAt('snare');

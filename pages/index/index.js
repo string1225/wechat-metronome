@@ -1,4 +1,4 @@
-const { singlePatterns, rhythmPatterns, continuousRoutines, groovePatterns } = require('../../utils/patterns');
+const { singlePatterns, rhythmPatterns, continuousRoutines, groovePatterns, routineStagePattern } = require('../../utils/patterns');
 const { DrumAudio } = require('../../utils/audio');
 const { Transport } = require('../../utils/transport');
 const { eventAt, routineTimeline } = require('../../utils/session');
@@ -79,7 +79,7 @@ Page({
     const list = libraries[mode] || groovePatterns;
     const index = this.data.selected[mode] || 0;
     this._runtime = routineTimeline(routine);
-    this.setData({ activePattern: patternView(list[index] || list[0]), activeRoutine: routine,
+    this.setData({ activePattern: patternView(mode === 'continuous' ? routineStagePattern(routine.stages[0]) : list[index] || list[0]), activeRoutine: routine,
       library: mode === 'continuous' ? continuousRoutines : list,
       stageIndex: 0, stageBar: 1, stageBars: routine.stages[0].bars,
       stageName: routine.stages[0].name, nextStageName: routine.stages[1].name,
@@ -130,6 +130,8 @@ Page({
     const updates = { currentStep: event.step, currentBeat: event.beat, currentBar: event.bar || 1, countInNum: event.countIn, phase: event.phase };
     if (event.stageIndex !== undefined) {
       const stages = this.data.activeRoutine.stages;
+      const stage = stages[event.stageIndex];
+      if (this.data.activePattern.id !== stage.id) updates.activePattern = patternView(routineStagePattern(stage));
       updates.stageIndex = event.stageIndex; updates.stageBar = event.stageBar;
       updates.stageBars = event.stageBars; updates.stageName = event.stageName;
       updates.nextStageName = stages[(event.stageIndex + 1) % stages.length].name;
@@ -144,7 +146,14 @@ Page({
   stop() {
     this._startToken += 1;
     if (this._transport) this._transport.stop();
-    this.setData({ isStarting: false, isPlaying: false, currentStep: -1, currentBeat: -1, countInNum: 0, phase: '待开始' });
+    const updates = { isStarting: false, isPlaying: false, currentStep: -1, currentBeat: -1, countInNum: 0, phase: '待开始' };
+    if (this.data.mode === 'continuous') {
+      const stages = this.data.activeRoutine.stages;
+      Object.assign(updates, { stageIndex: 0, stageBar: 1, stageBars: stages[0].bars,
+        stageName: stages[0].name, nextStageName: stages[1].name,
+        activePattern: patternView(routineStagePattern(stages[0])), currentBar: 1, gridScrollLeft: 0 });
+    }
+    this.setData(updates);
     this.keepScreen(false);
   },
   changeBpm(event) { this.setTempo(this.data.bpm + Number(event.currentTarget.dataset.step)); },
