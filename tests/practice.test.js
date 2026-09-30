@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { groovePatterns, singlePatterns, rhythmPatterns, continuousRoutines } = require('../utils/patterns');
 const { eventAt, routineTimeline } = require('../utils/session');
-const { rhythmNotes, profiles, legend, drawScore } = require('../utils/notation');
+const { rhythmNotes, positions, legend, drawScore } = require('../utils/notation');
 const { Transport } = require('../utils/transport');
 const { DrumAudio } = require('../utils/audio');
 const fs = require('node:fs');
@@ -53,15 +53,12 @@ test('each decomposition plays only its specified instruments', () => {
   });
 });
 
-test('notation profiles cover every legend entry without changing the played rhythm', () => {
-  assert.notEqual(profiles.academic.positions.kick, profiles.popular.positions.kick);
-  assert.notEqual(profiles.academic.positions.snare, profiles.popular.positions.snare);
-  assert.notEqual(profiles.academic.positions.hihat, profiles.popular.positions.hihat);
-  for (const profile of Object.keys(profiles)) {
-    assert.equal(legend(profile).length, 10);
-    legend(profile).forEach((item) => assert.ok(!item.position.includes('undefined')));
-  }
-  assert.deepEqual(eventAt(0, { ...options, profile: 'academic' }), eventAt(0, { ...options, profile: 'popular' }));
+test('staff and legend follow the eight instruments in the user reference chart', () => {
+  assert.deepEqual(positions, { kick: 1, lowTom: 3, snare: 5, midTom: 6, highTom: 7, ride: 8, hihat: 9, crash: 10 });
+  assert.deepEqual(Object.fromEntries(legend().map((item) => [item.key, item.position])), {
+    hihat: '上加一间', snare: '第三间', kick: '第一间', highTom: '第四间',
+    midTom: '第四线', lowTom: '第二间', ride: '第五线', crash: '上加一线'
+  });
 });
 
 test('basic notation accounts for all note durations and tuplets within every beat', () => {
@@ -77,10 +74,10 @@ test('basic notation accounts for all note durations and tuplets within every be
   assert.equal(rhythmNotes(singlePatterns[1])[0].tuplet, 3);
 });
 
-test('all scores draw without invalid coordinates in both mappings and narrow screens', () => {
+test('all scores draw without invalid coordinates on narrow screens', () => {
   const ctx = new Proxy({}, { get(target, key) { return target[key] || ((...args) => { args.filter((arg) => typeof arg === 'number').forEach((arg) => assert.ok(Number.isFinite(arg), key)); }); } });
   singlePatterns.concat(rhythmPatterns, groovePatterns).forEach((pattern) => {
-    ['academic', 'popular'].forEach((profile) => drawScore(ctx, 260, pattern.stepsPerBeat > 4 ? 320 : 160, { pattern, profile, activeStep: 0, muted: {} }));
+    drawScore(ctx, 260, pattern.stepsPerBeat > 4 ? 320 : 160, { pattern, activeStep: 0, muted: {} });
   });
 });
 
@@ -162,8 +159,8 @@ function makePage(saved) {
 
 test('page restores validated preferences and all practice modes remain selectable', () => {
   const { page } = makePage({ version: 2, mode: 'invalid', selected: { groove: 900 }, bpm: 999, profile: 'popular' });
-  assert.equal(page.data.mode, 'groove'); assert.equal(page.data.bpm, 220);
-  assert.equal(page.data.profile, 'popular');
+  assert.equal(page.data.mode, 'click'); assert.equal(page.data.bpm, 220);
+  assert.equal(page.data.profile, undefined);
   page.selectSection({ currentTarget: { dataset: { section: 'basics' } } });
   assert.equal(page.data.activePattern.id, 'eighth-notes');
   page.selectBasic({ currentTarget: { dataset: { mode: 'rhythm' } } });
@@ -172,6 +169,24 @@ test('page restores validated preferences and all practice modes remain selectab
   assert.ok(page._runtime.timeline.length > 0);
   page.selectSection({ currentTarget: { dataset: { section: 'click' } } });
   assert.equal(page.data.mode, 'click');
+});
+
+test('legacy settings cannot restore obsolete notation; basics opens as a grid', () => {
+  const { page } = makePage({ version: 2, mode: 'groove', viewMode: 'score', profile: 'academic', bpm: 72 });
+  assert.equal(page.data.section, 'click');
+  assert.equal(page.data.viewMode, 'grid');
+  page.selectSection({ currentTarget: { dataset: { section: 'groove' } } });
+  const pattern = JSON.stringify(page.data.activePattern);
+  const sounds = eventAt(0, { ...page.data, pattern: page.data.activePattern, countIn: false });
+  page.setData({ isPlaying: true, currentStep: 3 });
+  page.selectDisplay({ currentTarget: { dataset: { display: 'score' } } });
+  assert.equal(page.data.isPlaying, true); assert.equal(page.data.currentStep, 3);
+  assert.equal(page.data.viewMode, 'score');
+  assert.equal(JSON.stringify(page.data.activePattern), pattern);
+  assert.deepEqual(eventAt(0, { ...page.data, pattern: page.data.activePattern, countIn: false }), sounds);
+  page.selectSection({ currentTarget: { dataset: { section: 'basics' } } });
+  assert.equal(page.data.mode, 'single'); assert.equal(page.data.viewMode, 'grid');
+  assert.equal(page.data.isPlaying, false);
 });
 
 test('leaving during async audio setup cannot start playback later or keep the screen awake', async () => {

@@ -3,7 +3,6 @@ const { drawScore } = require('../../utils/notation');
 Component({
   properties: {
     pattern: { type: Object, value: null },
-    profile: { type: String, value: 'academic' },
     activeStep: { type: Number, value: -1 },
     muted: { type: Object, value: {} },
     large: { type: Boolean, value: false }
@@ -14,7 +13,7 @@ Component({
       const scoreHeight = (pattern && pattern.stepsPerBeat > 4 ? 2 : 1) * (large ? 220 : 160);
       this.setData({ scoreHeight }, () => this.refresh());
     },
-    'profile, activeStep, muted': function() { this.paint(); }
+    'activeStep, muted': function() { this.paint(); }
   },
   lifetimes: {
     ready() { this._ready = true; this.refresh(); },
@@ -43,7 +42,7 @@ Component({
       this._context.save();
       this._context.scale(zoom, zoom);
       drawScore(this._context, this._width / zoom, this.data.scoreHeight / zoom, {
-        pattern: this.data.pattern, profile: this.data.profile,
+        pattern: this.data.pattern,
         activeStep: this.data.activeStep, muted: this.data.muted
       });
       this._context.restore();

@@ -6,7 +6,6 @@ const { legend } = require('../../utils/notation');
 
 const STORAGE_KEY = 'drum-practice-v2';
 const libraries = { groove: groovePatterns, single: singlePatterns, rhythm: rhythmPatterns };
-const categoryNames = { groove: '套鼓律动', single: '单击细分', rhythm: '节奏组合', continuous: '连续换档' };
 function clamp(value, min, max, fallback) {
   const number = Number(value);
   return Number.isFinite(number) ? Math.max(min, Math.min(max, Math.round(number))) : fallback;
@@ -19,6 +18,7 @@ function patternView(pattern) {
   }));
   return { ...pattern, ruler, gridWidth: ruler.length * 58,
     tracks: pattern.tracks.map((track) => ({ ...track,
+      gridLabel: track.key === 'hihat' ? '踩镲' : track.key === 'kick' ? '底鼓' : track.key === 'snare' ? '军鼓' : track.short,
       cells: track.hits.map((hit, step) => ({ step, hit: Boolean(hit), isBeat: step % division === 0, label: hit ? (typeof hit === 'string' ? hit : track.key === 'hihat' ? '×' : '●') : '·' }))
     }))
   };
@@ -26,13 +26,13 @@ function patternView(pattern) {
 
 Page({
   data: {
-    section: 'groove', mode: 'groove', bpm: 60, isPlaying: false, isStarting: false,
-    currentStep: -1, currentBeat: -1, currentBar: 1, countInNum: 0, phase: '准备好就开始',
+    section: 'click', mode: 'click', bpm: 90, isPlaying: false, isStarting: false,
+    currentStep: -1, currentBeat: -1, currentBar: 1, countInNum: 0, phase: '待开始',
     beats: [1, 2, 3, 4], selected: { groove: 0, single: 0, rhythm: 0, continuous: 0 },
-    activePattern: patternView(groovePatterns[0]), categoryName: '套鼓律动',
+    activePattern: patternView(groovePatterns[0]),
     library: groovePatterns, activeRoutine: continuousRoutines[0],
     stageIndex: 0, stageBar: 1, stageBars: 4, stageName: '8分', nextStageName: '三连',
-    profile: 'academic', legend: legend('academic'), viewMode: 'score',
+    legend: legend(), viewMode: 'grid',
     loopBars: 8, loopChoices: [4, 8, 16, 0], countIn: true, clickOn: true,
     drumVolume: 80, clickVolume: 55, boost: false, muted: {},
     sheet: '', focusMode: false, gridScrollLeft: 0, audioStatus: '', audioUnavailable: false,
@@ -44,18 +44,17 @@ Page({
     let saved;
     try { saved = wx.getStorageSync(STORAGE_KEY); } catch (error) { /* Storage is optional. */ }
     if (saved && saved.version === 2) {
-      const mode = ['groove', 'single', 'rhythm', 'continuous', 'click'].indexOf(saved.mode) >= 0 ? saved.mode : 'groove';
       const selected = { ...this.data.selected };
       Object.keys(selected).forEach((key) => {
         const length = key === 'continuous' ? continuousRoutines.length : libraries[key].length;
         selected[key] = clamp(saved.selected && saved.selected[key], 0, length - 1, 0);
       });
-      this.setData({ mode, section: mode === 'click' || mode === 'groove' ? mode : 'basics', selected,
-        bpm: clamp(saved.bpm, 40, 220, 60), profile: saved.profile === 'popular' ? 'popular' : 'academic',
+      this.setData({ selected,
+        bpm: clamp(saved.bpm, 40, 220, 90),
         loopBars: [0, 4, 8, 16].indexOf(saved.loopBars) >= 0 ? saved.loopBars : 8,
         countIn: saved.countIn !== false, clickOn: saved.clickOn !== false,
         drumVolume: clamp(saved.drumVolume, 0, 100, 80), clickVolume: clamp(saved.clickVolume, 0, 100, 55),
-        boost: Boolean(saved.boost), viewMode: saved.viewMode === 'grid' ? 'grid' : 'score'
+        boost: Boolean(saved.boost)
       });
     }
     this.applyMode();
@@ -67,9 +66,9 @@ Page({
   save() {
     const d = this.data;
     try { wx.setStorageSync(STORAGE_KEY, {
-      version: 2, mode: d.mode, selected: d.selected, bpm: d.bpm, profile: d.profile,
+      version: 2, selected: d.selected, bpm: d.bpm,
       loopBars: d.loopBars, countIn: d.countIn, clickOn: d.clickOn, drumVolume: d.drumVolume,
-      clickVolume: d.clickVolume, boost: d.boost, viewMode: d.viewMode
+      clickVolume: d.clickVolume, boost: d.boost
     }); } catch (error) { /* Practice remains usable without storage. */ }
   },
   applyMode() {
@@ -79,17 +78,19 @@ Page({
     const index = this.data.selected[mode] || 0;
     this._runtime = routineTimeline(routine);
     this.setData({ activePattern: patternView(list[index] || list[0]), activeRoutine: routine,
-      library: mode === 'continuous' ? continuousRoutines : list, categoryName: categoryNames[mode] || '基础节拍器',
+      library: mode === 'continuous' ? continuousRoutines : list,
       stageIndex: 0, stageBar: 1, stageBars: routine.stages[0].bars,
       stageName: routine.stages[0].name, nextStageName: routine.stages[1].name,
-      legend: legend(this.data.profile), muted: {}, gridScrollLeft: 0
+      muted: {}, gridScrollLeft: 0
     });
     this.save();
   },
   selectSection(event) {
     const section = event.currentTarget.dataset.section;
     if (section === this.data.section) return;
-    this.stop(); this.setData({ section, mode: section === 'basics' ? 'single' : section }); this.applyMode();
+    this.stop();
+    this.setData({ section, mode: section === 'basics' ? 'single' : section, viewMode: section === 'basics' ? 'grid' : this.data.viewMode });
+    this.applyMode();
   },
   selectBasic(event) { this.stop(); this.setData({ mode: event.currentTarget.dataset.mode }); this.applyMode(); },
   selectExercise(event) {
@@ -117,7 +118,7 @@ Page({
       },
       visual: (event) => this.showEvent(event), cancelAudio: () => this._audio.cancel(),
       finish: () => {
-        this.setData({ isPlaying: false, currentStep: -1, currentBeat: -1, phase: '完成 ' + this.data.loopBars + ' 小节，再来一轮？' });
+        this.setData({ isPlaying: false, currentStep: -1, currentBeat: -1, phase: '已完成 ' + this.data.loopBars + ' 小节' });
         this.keepScreen(false);
       }
     });
@@ -141,7 +142,7 @@ Page({
   stop() {
     this._startToken += 1;
     if (this._transport) this._transport.stop();
-    this.setData({ isStarting: false, isPlaying: false, currentStep: -1, currentBeat: -1, countInNum: 0, phase: '准备好就开始' });
+    this.setData({ isStarting: false, isPlaying: false, currentStep: -1, currentBeat: -1, countInNum: 0, phase: '待开始' });
     this.keepScreen(false);
   },
   changeBpm(event) { this.setTempo(this.data.bpm + Number(event.currentTarget.dataset.step)); },
@@ -153,8 +154,11 @@ Page({
     if (this._taps.length > 5) this._taps.shift();
     if (this._taps.length > 1) this.setTempo(60000 * (this._taps.length - 1) / (now - this._taps[0]));
   },
-  selectProfile(event) { const profile = event.currentTarget.dataset.profile; this.setData({ profile, legend: legend(profile) }); this.save(); },
-  selectView(event) { this.setData({ viewMode: event.currentTarget.dataset.view }); this.save(); },
+  selectDisplay(event) {
+    const display = event.currentTarget.dataset.display;
+    if (display !== 'grid' && display !== 'score') return;
+    this.setData({ viewMode: display });
+  },
   selectLoop(event) { this.stop(); this.setData({ loopBars: Number(event.currentTarget.dataset.bars) }); this.save(); },
   toggleTrack(event) { const key = event.currentTarget.dataset.key; this.setData({ muted: { ...this.data.muted, [key]: !this.data.muted[key] } }); },
   toggleFocus() { this.setData({ focusMode: !this.data.focusMode }, () => this.refreshScore()); },

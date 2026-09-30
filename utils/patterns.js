@@ -296,17 +296,17 @@ const continuousRoutines = [
 ];
 
 const grooveTracks = [
-  { key: 'hihat', label: '闭合踩镲', short: '镲', sound: 'hihat', limb: '右手', hits: [1, 1, 1, 1, 1, 1, 1, 1] },
+  { key: 'hihat', label: '踩镲', short: '踩镲', sound: 'hihat', limb: '右手', hits: [1, 1, 1, 1, 1, 1, 1, 1] },
   { key: 'snare', label: '军鼓', short: '打', sound: 'snare', limb: '左手', hits: [0, 0, 1, 0, 0, 0, 1, 0] },
   { key: 'kick', label: '底鼓', short: '动', sound: 'kick', limb: '右脚', hits: [1, 0, 0, 0, 1, 0, 0, 0] }
 ];
 
 const grooveSpecs = [
-  { id: 'basic-rock', name: '标准动次打次', shortName: '完整合奏', focus: '动、打都与踩镲同时落下；右手始终保持八分音符。', parts: ['hihat', 'snare', 'kick'] },
+  { id: 'basic-rock', name: '标准动次打次', shortName: '标准动次打次', focus: '动、打都与踩镲同时落下；右手始终保持八分音符。', parts: ['hihat', 'snare', 'kick'] },
   { id: 'hat-only', name: '第一步 · 稳住踩镲', shortName: '只打踩镲', focus: '右手每拍两下，数清 1 & 2 & 3 & 4 &。', parts: ['hihat'] },
   { id: 'hat-kick', name: '第二步 · 加入底鼓', shortName: '踩镲＋底鼓', focus: '第1、3拍右手右脚同时落下，脚不要带乱手。', parts: ['hihat', 'kick'] },
   { id: 'hat-snare', name: '第三步 · 加入军鼓', shortName: '踩镲＋军鼓', focus: '第2、4拍双手同时落下，保持反拍稳定。', parts: ['hihat', 'snare'] },
-  { id: 'rock-echo', name: '你听一小节 · 你打一小节', shortName: '听一句，打一遍', focus: '示范与跟打交替；轮到你时只保留节拍器。', parts: ['hihat', 'snare', 'kick'], echo: true }
+  { id: 'rock-echo', name: '你听一小节 · 你打一小节', shortName: '听奏交替', focus: '示范与跟打交替；轮到你时只保留节拍器。', parts: ['hihat', 'snare', 'kick'], echo: true }
 ];
 
 const groovePatterns = grooveSpecs.map((spec) => ({

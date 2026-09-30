@@ -1,22 +1,17 @@
 // Staff positions count upwards from the bottom line in half-space units.
-// These are named app presets, not a claim of a universal school standard.
+// Fixed to the user's reference chart (2026-09-30); no school-specific presets.
 const instruments = [
-  { key: 'hihat', label: '闭合踩镲', head: 'cross' },
-  { key: 'openHat', label: '开镲', head: 'cross + ○' },
-  { key: 'footHat', label: '脚踩镲', head: 'cross' },
+  { key: 'hihat', label: '踩镲', head: 'cross' },
   { key: 'snare', label: '军鼓', head: 'oval' },
   { key: 'kick', label: '底鼓', head: 'oval' },
-  { key: 'highTom', label: '高音桶鼓', head: 'oval' },
-  { key: 'midTom', label: '中音桶鼓', head: 'oval' },
-  { key: 'lowTom', label: '落地桶鼓', head: 'oval' },
+  { key: 'highTom', label: '一桶鼓', head: 'oval' },
+  { key: 'midTom', label: '二桶鼓', head: 'oval' },
+  { key: 'lowTom', label: '三桶鼓', head: 'oval' },
   { key: 'ride', label: '叮叮镲', head: 'cross' },
   { key: 'crash', label: '强音镲', head: 'cross' }
 ];
 
-const profiles = {
-  academic: { name: '学院派', subtitle: '线位版', positions: { kick: 0, snare: 4, hihat: 8, openHat: 8, footHat: -1, highTom: 7, midTom: 5, lowTom: 3, ride: 9, crash: 10 } },
-  popular: { name: '流行派', subtitle: '间位版', positions: { kick: 1, snare: 5, hihat: 9, openHat: 9, footHat: -1, highTom: 7, midTom: 6, lowTom: 3, ride: 8, crash: 10 } }
-};
+const positions = Object.freeze({ kick: 1, lowTom: 3, snare: 5, midTom: 6, highTom: 7, ride: 8, hihat: 9, crash: 10 });
 
 function positionLabel(position) {
   if (position === -1) return '下加一间';
@@ -26,12 +21,10 @@ function positionLabel(position) {
   return '第' + numerals[Math.floor(position / 2)] + (position % 2 ? '间' : '线');
 }
 
-function legend(profile) {
-  const selected = profiles[profile] || profiles.academic;
+function legend() {
   return instruments.map((instrument) => ({
     ...instrument, symbol: instrument.head.indexOf('cross') === 0 ? '×' : '●',
-    position: positionLabel(selected.positions[instrument.key]),
-    annotation: instrument.key === 'openHat' ? '上方加 ○' : instrument.key === 'hihat' ? '闭镲' : ''
+    position: positionLabel(positions[instrument.key])
   }));
 }
 
@@ -85,7 +78,6 @@ function rest(ctx, x, y) {
 function drawScore(ctx, width, height, options) {
   const pattern = options.pattern;
   if (!pattern || !pattern.tracks) return;
-  const profile = profiles[options.profile] || profiles.academic;
   const division = pattern.stepsPerBeat;
   const groove = pattern.tracks.some((track) => track.key === 'hihat');
   const rows = division > 4 ? 2 : 1;
@@ -104,7 +96,7 @@ function drawScore(ctx, width, height, options) {
     const top = row * rowHeight + 43;
     const bottom = top + 40;
     const firstStep = row * beatsPerRow * division;
-    const yAt = (key) => bottom - profile.positions[key] * 5;
+    const yAt = (key) => bottom - positions[key] * 5;
     const xAt = (step) => left + (step - firstStep + 0.35) * stepWidth;
     if (options.activeStep >= firstStep && options.activeStep < firstStep + beatsPerRow * division) {
       ctx.fillStyle = '#fce7df';
@@ -187,4 +179,4 @@ function drawScore(ctx, width, height, options) {
   }
 }
 
-module.exports = { profiles, legend, positionLabel, rhythmNotes, drawScore };
+module.exports = { positions, legend, positionLabel, rhythmNotes, drawScore };

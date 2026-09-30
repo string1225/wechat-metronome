@@ -53,7 +53,7 @@ function eventAt(index, options) {
   return {
     duration: beatSeconds / division, sounds, beat: Math.floor(step / division), step,
     bar: bar + 1, countIn: 0,
-    phase: pattern && pattern.echo ? (follow ? '轮到你 · 跟着节拍打' : '听示范') : '跟谱练习'
+    phase: options.mode === 'click' ? '节拍器' : pattern && pattern.echo ? (follow ? '跟打' : '听示范') : '跟谱练习'
   };
 }
 
